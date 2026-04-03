@@ -9,6 +9,43 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v0.93 &mdash; April 3, 2026</h2>
+            <p className="text-gray-400 mb-3">Stealth, flight, combat stubs, session capture, and 70+ new verbs.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Stealth &amp; Flight</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>HIDE to conceal yourself, SNEAK to move while hidden</li>
+                  <li>FLY/ASCEND/DESCEND/LAND &mdash; Drakin can always fly, others need spells</li>
+                  <li>MARK to set teleport anchors for future spell use</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Session Capture</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Record your gameplay sessions from the Capture button</li>
+                  <li>View and download previous captures as .txt files</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Admin Tools</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Real-time Event Monitor for script execution, time cycles, and world state</li>
+                  <li>Backend health monitoring with /healthz endpoint</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Fixes</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Proper articles: &ldquo;an axe&rdquo; instead of &ldquo;a axe&rdquo;</li>
+                  <li>GO command works for non-portal items with scripts (stairways, etc.)</li>
+                  <li>Text is now selectable/copyable in the terminal</li>
+                  <li>HP renamed to BP (Body Points) throughout</li>
+                </ul>
+              </div>
+            </div>
+
             <h2 className="text-amber-400 text-lg font-bold mb-1">v0.91 &mdash; April 3, 2026</h2>
             <p className="text-gray-400 mb-3">Major systems expansion &mdash; script engine, world systems, and player features.</p>
 

@@ -120,6 +120,16 @@ func init() {
 }
 
 // FindSpellByName finds a spell by prefix match on name.
+// FindSpellByID returns a spell by its numeric ID.
+func FindSpellByID(id int) *SpellDef {
+	for i := range spellRegistry {
+		if spellRegistry[i].ID == id {
+			return &spellRegistry[i]
+		}
+	}
+	return nil
+}
+
 func FindSpellByName(input string) *SpellDef {
 	input = strings.ToLower(input)
 	// Exact match first

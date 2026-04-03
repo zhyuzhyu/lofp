@@ -1,11 +1,13 @@
-import { useState, useEffect, createContext, useContext } from 'react'
+import { useState, useEffect, useRef, createContext, useContext } from 'react'
 import Terminal from './components/Terminal'
 import CharacterCreate from './components/CharacterCreate'
 import MainMenu from './components/MainMenu'
 import AdminPanel from './components/AdminPanel'
 import VersionNotes from './components/VersionNotes'
+import CaptureModal from './components/CaptureModal'
+import CaptureViewer from './components/CaptureViewer'
 
-type View = 'menu' | 'create' | 'play' | 'admin' | 'version'
+type View = 'menu' | 'create' | 'play' | 'admin' | 'version' | 'capture_view'
 
 export interface Character {
   firstName: string
@@ -44,8 +46,23 @@ export function useAuth() {
 function App() {
   const [view, setView] = useState<View>('menu')
   const [character, setCharacter] = useState<Character | null>(null)
+  const [backendOnline, setBackendOnline] = useState(true)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [showCaptureModal, setShowCaptureModal] = useState(false)
+  const [captureRecording, setCaptureRecording] = useState(false)
+  const [viewCaptureId, setViewCaptureId] = useState('')
+  const wsRef = useRef<WebSocket | null>(null)
+
+  // Backend health check
+  useEffect(() => {
+    const check = () => {
+      fetch('/healthz').then(r => setBackendOnline(r.ok)).catch(() => setBackendOnline(false))
+    }
+    check()
+    const interval = setInterval(check, 5000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Restore session from localStorage
   useEffect(() => {
@@ -138,6 +155,12 @@ function App() {
             LEGENDS OF FUTURE PAST
           </h1>
           <div className="flex gap-2 items-center">
+            {!backendOnline && (
+              <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-mono text-yellow-400">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                Connecting to server...
+              </div>
+            )}
             <button
               onClick={() => setView('menu')}
               className={`px-3 py-1 text-sm rounded font-mono ${view === 'menu' ? 'bg-amber-700 text-white' : 'text-gray-400 hover:text-white'}`}
@@ -156,6 +179,14 @@ function App() {
                 className={`px-3 py-1 text-sm rounded font-mono ${view === 'admin' ? 'bg-amber-700 text-white' : 'text-gray-400 hover:text-white'}`}
               >
                 Admin
+              </button>
+            )}
+            {character && view === 'play' && (
+              <button
+                onClick={() => setShowCaptureModal(true)}
+                className={`px-3 py-1 text-sm rounded font-mono ${captureRecording ? 'bg-red-700 text-white animate-pulse' : 'text-gray-400 hover:text-white'}`}
+              >
+                {captureRecording ? 'Recording' : 'Capture'}
               </button>
             )}
             {user && (
@@ -184,10 +215,19 @@ function App() {
             />
           )}
           {view === 'create' && <CharacterCreate onCreated={handleCharacterCreated} />}
-          {view === 'play' && character && <Terminal character={character} onQuit={() => setView('menu')} />}
+          {view === 'play' && character && <Terminal character={character} onQuit={() => setView('menu')} wsRefOut={wsRef} onCaptureStatus={(recording, _id) => { setCaptureRecording(recording) }} />}
           {view === 'admin' && <AdminPanel />}
           {view === 'version' && <VersionNotes onBack={() => setView('menu')} />}
+          {view === 'capture_view' && <CaptureViewer captureId={viewCaptureId} onBack={() => setView('play')} />}
         </div>
+        {showCaptureModal && (
+          <CaptureModal
+            wsRef={wsRef}
+            recording={captureRecording}
+            onClose={() => setShowCaptureModal(false)}
+            onViewCapture={(id) => { setViewCaptureId(id); setShowCaptureModal(false); setView('capture_view') }}
+          />
+        )}
       </div>
     </AuthContext.Provider>
   )

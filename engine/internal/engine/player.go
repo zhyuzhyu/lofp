@@ -78,6 +78,14 @@ type Player struct {
 	Hidden     bool `bson:"hidden" json:"hidden"`
 	Dead       bool `bson:"dead" json:"dead"`
 
+	// Physical attributes
+	Height     int `bson:"height,omitempty" json:"height,omitempty"`       // inches
+	HeightTrue int `bson:"heightTrue,omitempty" json:"heightTrue,omitempty"`
+	Weight     int `bson:"weight,omitempty" json:"weight,omitempty"`       // pounds (base, not inventory)
+	WeightTrue int `bson:"weightTrue,omitempty" json:"weightTrue,omitempty"`
+	Age        int `bson:"age,omitempty" json:"age,omitempty"`
+	AgeTrue    int `bson:"ageTrue,omitempty" json:"ageTrue,omitempty"`
+
 	// Status conditions
 	Bleeding    bool `bson:"bleeding" json:"bleeding"`
 	Stunned     bool `bson:"stunned" json:"stunned"`
@@ -86,8 +94,18 @@ type Player struct {
 	Joined      bool `bson:"joined" json:"joined"`
 	Unconscious bool `bson:"unconscious" json:"unconscious"`
 	Immobilized bool `bson:"immobilized" json:"immobilized"`
+	Sleeping    bool `bson:"sleeping,omitempty" json:"sleeping,omitempty"`
+	Submitting  bool `bson:"submitting,omitempty" json:"submitting,omitempty"`
+	Undead      bool `bson:"undead,omitempty" json:"undead,omitempty"`
+	WolfForm    bool `bson:"wolfForm,omitempty" json:"wolfForm,omitempty"`
+	SlimeForm   bool `bson:"slimeForm,omitempty" json:"slimeForm,omitempty"`
+	Disguised   bool `bson:"disguised,omitempty" json:"disguised,omitempty"`
 	RoundTime   int  `bson:"roundTime" json:"roundTime"`
-	CanFly      bool `bson:"canFly" json:"canFly"` // granted by spell or magical effect
+	CanFly      bool `bson:"canFly" json:"canFly"`
+	PreparedSpell int `bson:"preparedSpell,omitempty" json:"preparedSpell,omitempty"`
+
+	// Teleport marks (1-10) → room number
+	Marks map[int]int `bson:"marks,omitempty" json:"marks,omitempty"`
 
 	// Inventory
 	Inventory []InventoryItem `bson:"inventory" json:"inventory"`

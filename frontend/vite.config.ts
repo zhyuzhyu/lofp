@@ -9,6 +9,7 @@ export default defineConfig({
     host: 'localhost',
     proxy: {
       '/api': 'http://localhost:4993',
+      '/healthz': 'http://localhost:4993',
       '/ws': {
         target: 'http://localhost:4993',
         ws: true,

@@ -1,5 +1,72 @@
 # Changelog
 
+## v0.93 — 2026-04-03
+
+### New Commands
+- **HIDE/SNEAK**: Stealth system — conceal yourself and move while hidden
+- **FLY/ASCEND/DESCEND/LAND**: Flight system for Drakin race and spell-granted flight
+- **MARK**: Set teleport anchor points (1-10) for future spell use
+- **BALANCE**: View bank account balance
+- **SPELL**: List all known spells
+- **THINK**: Telepathy broadcast to all players
+- **CANT**: Covert message requiring Legerdemain skill
+- **UNDRESS**: Remove outermost worn item
+- **UNPROMPT**: Toggle off prompt indicators
+- **VERSION/CREDITS**: Game info
+
+### Combat & Spell Stubs (40+ verbs)
+- All combat verbs stubbed with TODO: ATTACK, KILL, ADVANCE, RETREAT, GUARD, BACKSTAB, BITE, AVOID
+- Combat stances: BERSERK, FRENZY, DEFENSIVE, OFFENSIVE, WARY, NORMAL
+- Spell verbs: INVOKE, PREPARE, CHANT, COMMAND, MASTER
+- Ranged: NOCK, LOAD, SPECIALIZE
+- Skills: DISARM, STEAL, STALK, TEACH, SELFTRAIN, UNLEARN, ANOINT, TRAP, SURVEY, SPLIT
+- Racial: BLEND, CALL, TRANSFORM, MOLD, DISGUISE
+- Social: SUBMIT, ARREST, ENROLL, INITIATE, JOIN, FOLLOW, LEAVE, DISBAND
+- Other: TEND, BREAK, PUT, FILL, SKIN, REPAIR, WORK
+
+### Script Variables Expansion
+- Physical attributes: HEI/HEIT, WEI/WEIT, AGE/AGET
+- Form states: WOLFFORM, SLIMEFORM, OTHERFORM, UNDEAD, DISGUISED
+- Status: SLEEPING, SUBMITTING, ROUNDTIME, SPELLNUM, POSITION
+- Wealth: WEALTH (total copper)
+- Room: WILDERNESS, ASTRAL, TERRAIN (numeric), OBJWEIGHT
+
+### Player System
+- New fields: Height, Weight, Age (with true variants), Marks, PreparedSpell
+- Form states: WolfForm, SlimeForm, Disguised
+- Status: Sleeping, Submitting, Undead
+
+### Fixes
+- **Article fix**: "an axe" instead of "a axe" — auto-detects vowel sounds
+- **Body Points**: All "HP" references changed to "BP" throughout UI
+- **GO command**: Non-portal items with IFPREVERB GO scripts now work (e.g., stairways)
+- **CLEARVERB + MOVE**: Scripts that block default GO but provide MOVE now work correctly
+- **Session Capture**: Fixed null array bug preventing line recording
+- **Copy-paste**: Terminal text now selectable on Windows
+- **Stop Recording**: Fixed stale WebSocket reference
+
+### Infrastructure
+- `/healthz` endpoint for vibectl health monitoring
+- Backend connection indicator in nav bar
+- Character list shows "Connecting to server..." when backend is unavailable
+- Create Character button hidden until backend responds
+- Event Monitor disconnect messages
+
+## v0.92 — 2026-04-03
+
+### Admin Event Monitor
+- Real-time WebSocket event feed for admin monitoring
+- Categories: system, time, monster, script, world state, weather
+- Background time cycle publishes hour/day/night transitions
+- Category filter, clear button, auto-scroll
+
+### Session Capture
+- Record game sessions to MongoDB
+- Start/stop from modal overlay during gameplay
+- View previous captures with color-coded output
+- Download as .txt file
+- Auto-stops on disconnect
+
 ## v0.91 — 2026-04-03
 
 ### Script Engine Expansion

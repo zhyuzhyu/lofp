@@ -32,9 +32,11 @@ interface CommandResult {
 interface Props {
   character: Character
   onQuit: () => void
+  wsRefOut?: React.RefObject<WebSocket | null>
+  onCaptureStatus?: (recording: boolean, id: string) => void
 }
 
-export default function Terminal({ character, onQuit }: Props) {
+export default function Terminal({ character, onQuit, wsRefOut, onCaptureStatus }: Props) {
   const { user } = useContext(AuthContext)
   const [lines, setLines] = useState<Array<{ text: string; type: 'output' | 'input' | 'system' | 'room' | 'item' | 'error' | 'broadcast' }>>([])
   const [input, setInput] = useState('')
@@ -61,6 +63,7 @@ export default function Terminal({ character, onQuit }: Props) {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const ws = new WebSocket(`${protocol}//${window.location.host}/ws/game`)
       wsRef.current = ws
+      if (wsRefOut) (wsRefOut as React.MutableRefObject<WebSocket | null>).current = ws
 
       ws.onopen = () => {
         setConnected(true)
@@ -98,6 +101,9 @@ export default function Terminal({ character, onQuit }: Props) {
           if (data.messages) {
             data.messages.forEach((m: string) => addLines([m], 'broadcast'))
           }
+        } else if (msg.type === 'capture_status') {
+          const data = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data
+          if (onCaptureStatus) onCaptureStatus(data.recording, data.id || '')
         }
       }
 
@@ -172,11 +178,17 @@ export default function Terminal({ character, onQuit }: Props) {
   }
 
   return (
-    <div className="flex flex-col h-full" onClick={() => inputRef.current?.focus()}>
+    <div className="flex flex-col h-full" onClick={() => {
+      // Only refocus input if clicking on empty space, not on selectable text
+      const selection = window.getSelection()
+      if (!selection || selection.toString().length === 0) {
+        inputRef.current?.focus()
+      }
+    }}>
       {/* Status bar */}
       {playerState && (
         <div className="flex gap-6 px-4 py-1.5 bg-[#111] border-b border-[#333] font-mono text-xs">
-          <span className="text-red-400">HP: {playerState.bodyPoints}/{playerState.maxBodyPoints}</span>
+          <span className="text-red-400">BP: {playerState.bodyPoints}/{playerState.maxBodyPoints}</span>
           <span className="text-yellow-400">FT: {playerState.fatigue}/{playerState.maxFatigue}</span>
           <span className="text-blue-400">MP: {playerState.mana}/{playerState.maxMana}</span>
           <span className="text-purple-400">PSI: {playerState.psi}/{playerState.maxPsi}</span>
@@ -188,7 +200,7 @@ export default function Terminal({ character, onQuit }: Props) {
       )}
 
       {/* Terminal output */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 font-mono text-sm leading-relaxed">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 font-mono text-sm leading-relaxed select-text cursor-text">
         {lines.map((line, i) => (
           <div key={i} className={`${colorMap[line.type]} whitespace-pre-wrap`}>
             {line.text || '\u00A0'}

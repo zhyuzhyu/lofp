@@ -33,6 +33,7 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
   const { user, login } = useAuth()
   const [players, setPlayers] = useState<SavedPlayer[]>([])
   const [loading, setLoading] = useState(true)
+  const [backendUp, setBackendUp] = useState(true)
   const [loginError, setLoginError] = useState('')
 
   const isLoggedIn = !!user
@@ -46,11 +47,18 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
     if (user?.token) {
       headers['Authorization'] = `Bearer ${user.token}`
     }
-    fetch('/api/characters', { headers })
-      .then(r => r.json())
-      .then((data: SavedPlayer[]) => setPlayers(data || []))
-      .catch(() => setPlayers([]))
-      .finally(() => setLoading(false))
+    setLoading(true)
+    setBackendUp(true)
+    const tryFetch = () => {
+      fetch('/api/characters', { headers })
+        .then(r => {
+          if (!r.ok) throw new Error('not ok')
+          return r.json()
+        })
+        .then((data: SavedPlayer[]) => { setPlayers(data || []); setBackendUp(true); setLoading(false) })
+        .catch(() => { setBackendUp(false); setTimeout(tryFetch, 3000) })
+    }
+    tryFetch()
   }, [user, isLoggedIn])
 
   const formatDate = (dateStr: string) => {
@@ -137,7 +145,14 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
         {isLoggedIn && (
           <>
             {loading ? (
-              <div className="text-gray-500 font-mono text-center">Loading characters...</div>
+              <div className="text-gray-500 font-mono text-center py-4">
+                {backendUp ? 'Loading characters...' : (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                    <span>Connecting to server...</span>
+                  </div>
+                )}
+              </div>
             ) : players.length > 0 ? (
               <div className="mb-6">
                 <h2 className="text-gray-400 font-mono text-sm uppercase tracking-wider mb-3">
@@ -158,7 +173,7 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
                           {p.firstName} {p.lastName}
                         </div>
                         <div className="text-gray-500 font-mono text-xs mt-1">
-                          Level {p.level} {RACE_NAMES[p.race] || 'Unknown'} &middot; HP {p.bodyPoints}/{p.maxBodyPoints} &middot; Room #{p.roomNumber}
+                          Level {p.level} {RACE_NAMES[p.race] || 'Unknown'} &middot; BP {p.bodyPoints}/{p.maxBodyPoints} &middot; Room #{p.roomNumber}
                         </div>
                       </div>
                       <div className="text-right">
@@ -175,15 +190,17 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
               </div>
             ) : null}
 
-            {/* New character button */}
-            <button
-              onClick={onNewCharacter}
-              className="w-full py-4 bg-[#111] border-2 border-dashed border-[#444] hover:border-amber-600 rounded-lg text-gray-400 hover:text-amber-400 font-mono text-lg transition-colors cursor-pointer"
-            >
-              + Create New Character
-            </button>
+            {/* New character button — only when backend is available */}
+            {!loading && backendUp && (
+              <button
+                onClick={onNewCharacter}
+                className="w-full py-4 bg-[#111] border-2 border-dashed border-[#444] hover:border-amber-600 rounded-lg text-gray-400 hover:text-amber-400 font-mono text-lg transition-colors cursor-pointer"
+              >
+                + Create New Character
+              </button>
+            )}
 
-            {players.length === 0 && !loading && (
+            {players.length === 0 && !loading && backendUp && (
               <p className="text-gray-600 font-mono text-xs text-center mt-4">
                 No saved characters found. Create one to begin your adventure!
               </p>
@@ -192,7 +209,7 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
         )}
         <div className="mt-6 text-center">
           <button onClick={onVersionNotes} className="text-gray-600 hover:text-amber-400 text-xs font-mono">
-            Version 0.91 &mdash; Version Notes
+            Version 0.94 &mdash; Version Notes
           </button>
         </div>
       </div>

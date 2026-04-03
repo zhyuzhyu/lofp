@@ -13,6 +13,7 @@ import (
 
 	"github.com/jonradoff/lofp/internal/api"
 	"github.com/jonradoff/lofp/internal/auth"
+	"github.com/jonradoff/lofp/internal/capture"
 	"github.com/jonradoff/lofp/internal/config"
 	"github.com/jonradoff/lofp/internal/engine"
 	"github.com/jonradoff/lofp/internal/gamelog"
@@ -101,9 +102,13 @@ func main() {
 		log.Println("Google OAuth not configured (set GOOGLE_CLIENT_ID to enable)")
 	}
 
+	// Create capture store
+	cs := capture.NewStore(db)
+
 	// Create API server
-	srv := api.NewServer(ge, parsed, authSvc, gl, h, cfg.Server.FrontendURL)
+	srv := api.NewServer(ge, parsed, authSvc, gl, h, cs, cfg.Server.FrontendURL)
 	h.Start()
+	ge.StartTimeCycle()
 
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)
 	log.Printf("Legends of Future Past server starting on %s", addr)

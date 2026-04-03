@@ -67,6 +67,7 @@ type GameEngine struct {
 	monsterMgr      *monsterManager
 	RegionWeather   map[int]int // region -> weather state
 	monsterLists    []gameworld.MonsterList
+	Events          *EventBus
 }
 
 // SetSessionProvider sets the session provider (called by API layer after init).
@@ -83,6 +84,9 @@ func (e *GameEngine) SetRoomChangeCallback(cb RoomChangeCallback) {
 func (e *GameEngine) notifyRoomChange(change RoomChange) {
 	if e.onRoomChange != nil {
 		e.onRoomChange(change)
+	}
+	if e.Events != nil {
+		e.Events.Publish("world", fmt.Sprintf("Room %d: %s (ref %d, state: %s)", change.RoomNumber, change.Type, change.ItemRef, change.NewState))
 	}
 }
 
@@ -155,10 +159,14 @@ func NewGameEngine(db *mongo.Database, parsed *gameworld.ParsedData) *GameEngine
 		e.monsters[parsed.Monsters[i].Number] = &parsed.Monsters[i]
 	}
 
+	// Initialize event bus for admin monitoring
+	e.Events = NewEventBus()
+
 	// Initialize monster manager and spawn initial monsters
 	e.monsterMgr = newMonsterManager()
 	e.monsterLists = parsed.MonsterLists
-	e.monsterMgr.SpawnInitialMonsters(parsed.MonsterLists, e.monsters)
+	count := e.monsterMgr.SpawnInitialMonsters(parsed.MonsterLists, e.monsters)
+	e.Events.Publish("monster", fmt.Sprintf("Spawned %d monsters across the world", count))
 
 	// Initialize weather (all regions sunny)
 	e.RegionWeather = make(map[int]int)
@@ -244,6 +252,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 			sc := e.RunSayScripts(player, room, msg)
 			if len(sc.Messages) > 0 {
 				result.Messages = append(result.Messages, sc.Messages...)
+				e.Events.Publish("script", fmt.Sprintf("IFSAY triggered by %s in room %d: \"%s\"", player.FirstName, room.Number, msg))
 			}
 			if len(sc.RoomMsgs) > 0 {
 				result.RoomBroadcast = append(result.RoomBroadcast, sc.RoomMsgs...)
@@ -492,8 +501,133 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		return e.doMine(player)
 	case "FORAGE":
 		return e.doForage(player)
-	case "CRAFT", "FORGE", "SMELT", "WEAVE", "DYE", "BREW", "ANALYZE":
+	case "CRAFT", "FORGE", "SMELT", "WEAVE", "DYE", "BREW", "ANALYZE", "WORK", "REPAIR":
 		return &CommandResult{Messages: []string{fmt.Sprintf("[%s system coming soon.]", strings.Title(strings.ToLower(verb)))}}
+	// === MOVEMENT/STEALTH ===
+	case "HIDE":
+		return e.doHide(ctx, player)
+	case "SNEAK":
+		return e.doSneak(ctx, player, args)
+	case "FLY":
+		return e.doFly(ctx, player)
+	case "ASCEND":
+		if player.Position != 4 { return &CommandResult{Messages: []string{"You must be flying to ascend."}} }
+		return e.doMove(ctx, player, "U")
+	case "DESCEND":
+		if player.Position != 4 { return &CommandResult{Messages: []string{"You must be flying to descend."}} }
+		return e.doMove(ctx, player, "D")
+	case "LAND":
+		if player.Position != 4 { return &CommandResult{Messages: []string{"You aren't flying."}} }
+		player.Position = 0
+		e.SavePlayer(ctx, player)
+		return &CommandResult{Messages: []string{"You land."}, RoomBroadcast: []string{fmt.Sprintf("%s lands.", player.FirstName)}}
+	// === ITEM INTERACTION ===
+	case "PUT", "PLACE":
+		return &CommandResult{Messages: []string{"[PUT system coming soon.]"}} // TODO: implement item placement
+	case "FILL":
+		return &CommandResult{Messages: []string{"[FILL system coming soon.]"}} // TODO: liquid transfer
+	case "MARK":
+		return e.doMark(ctx, player, args)
+	case "UNDRESS":
+		return e.doUndress(ctx, player)
+	case "SKIN":
+		return &CommandResult{Messages: []string{"[Skinning coming soon.]"}} // TODO: implement with sagecraft/woodlore
+	// === INFO ===
+	case "BALANCE":
+		return e.doBalance(player)
+	case "SPELL":
+		return e.doSpellList(player)
+	case "UNPROMPT":
+		player.PromptMode = false; e.SavePlayer(ctx, player)
+		return &CommandResult{Messages: []string{"Prompt indicators off."}}
+	case "VERSION", "NEWS", "NOTES":
+		return &CommandResult{Messages: []string{"Legends of Future Past v0.93"}}
+	case "CREDITS":
+		return &CommandResult{Messages: []string{"Legends of Future Past", "Originally created by Inner Circle Technologies, 1994", "Resurrected from original script files, 2026"}}
+	// === COMMUNICATION ===
+	case "THINK":
+		return e.doThink(player, args)
+	case "CANT":
+		return e.doCant(player, args)
+	// === COMBAT (TODO: full implementation) ===
+	case "ATTACK", "KILL", "SLAY", "SMITE":
+		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: target resolution, to-hit calc, damage, round time
+	case "ADVANCE":
+		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: move to melee range
+	case "RETREAT":
+		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: back off from melee
+	case "GUARD":
+		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: protect another player
+	case "BACKSTAB":
+		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: requires hidden + puncture weapon
+	case "BITE":
+		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: racial melee (drakin, wolf, murg)
+	case "AVOID":
+		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: avoid a specific target
+	case "BERSERK", "FRENZY":
+		return &CommandResult{Messages: []string{"[Combat stances coming soon.]"}} // TODO: offensive stance, murg frenzy
+	case "DEFENSIVE", "OFFENSIVE", "WARY", "NORMAL":
+		return &CommandResult{Messages: []string{"[Combat stances coming soon.]"}} // TODO: stance switching
+	case "INVOKE", "PREPARE":
+		return &CommandResult{Messages: []string{"[Spell preparation coming soon.]"}} // TODO: prepare spell, set PreparedSpell, round time
+	case "CHANT":
+		return &CommandResult{Messages: []string{"[Scroll casting coming soon.]"}} // TODO: cast from scroll
+	case "COMMAND":
+		return &CommandResult{Messages: []string{"[Summoned creature commands coming soon.]"}} // TODO: control conjured/dominated creatures
+	case "MASTER":
+		return &CommandResult{Messages: []string{"[Spell mastery coming soon.]"}} // TODO: improve a known spell
+	case "NOCK", "LOAD":
+		return &CommandResult{Messages: []string{"[Ranged combat coming soon.]"}} // TODO: load ammo into ranged weapon
+	case "SPECIALIZE":
+		return &CommandResult{Messages: []string{"[Weapon specialization coming soon.]"}} // TODO: improve crit chance with specific weapon
+	// === SKILL-BASED (TODO: implement) ===
+	case "DISARM":
+		return &CommandResult{Messages: []string{"[Trap disarming coming soon.]"}} // TODO: detect/disarm traps, requires Trap & Poison skill
+	case "STEAL", "FILCH", "ROB":
+		return &CommandResult{Messages: []string{"[Stealing coming soon.]"}} // TODO: pick pockets, requires Legerdemain
+	case "STALK":
+		return &CommandResult{Messages: []string{"[Stalking coming soon.]"}} // TODO: secretly follow someone
+	case "TEACH":
+		return &CommandResult{Messages: []string{"[Teaching coming soon.]"}} // TODO: teach a skill to others in room
+	case "SELFTRAIN":
+		return &CommandResult{Messages: []string{"[Self-training coming soon.]"}} // TODO: train self at +1 cost
+	case "UNLEARN":
+		return &CommandResult{Messages: []string{"[Unlearning coming soon.]"}} // TODO: unlearn skill, recoup build points minus one
+	case "ANOINT":
+		return &CommandResult{Messages: []string{"[Poison application coming soon.]"}} // TODO: coat weapon with poison
+	case "TRAP":
+		return &CommandResult{Messages: []string{"[Trap setting coming soon.]"}} // TODO: place trap on container
+	case "SURVEY":
+		return &CommandResult{Messages: []string{"[Mining survey coming soon.]"}} // TODO: survey area for minerals
+	case "SPLIT":
+		return &CommandResult{Messages: []string{"[Coin splitting coming soon.]"}} // TODO: divide coins among group
+	// === RACIAL/SPECIAL (TODO: implement) ===
+	case "BLEND":
+		return &CommandResult{Messages: []string{"[Highlander blend coming soon.]"}} // TODO: highlander cave/mountain camouflage
+	case "CALL":
+		return &CommandResult{Messages: []string{"[Aelfen familiar coming soon.]"}} // TODO: call woodland creature
+	case "TRANSFORM":
+		return &CommandResult{Messages: []string{"[Form transformation coming soon.]"}} // TODO: wolfling wolf form, mist/slime form
+	case "MOLD":
+		return &CommandResult{Messages: []string{"[Gem molding coming soon.]"}} // TODO: highlander gem improvement
+	case "DISGUISE":
+		return &CommandResult{Messages: []string{"[Disguise coming soon.]"}} // TODO: requires Disguise skill
+	case "SUBMIT":
+		return &CommandResult{Messages: []string{"[Submission coming soon.]"}} // TODO: surrender for arrest
+	case "ARREST":
+		return &CommandResult{Messages: []string{"[Arrest coming soon.]"}} // TODO: lawkeeper arrest
+	case "ENROLL":
+		return &CommandResult{Messages: []string{"[Organization enrollment coming soon.]"}} // TODO: join open org
+	case "INITIATE":
+		return &CommandResult{Messages: []string{"[Initiation coming soon.]"}} // TODO: initiate player into org
+	case "JOIN", "FOLLOW":
+		return &CommandResult{Messages: []string{"[Group system coming soon.]"}} // TODO: join party, follow player
+	case "LEAVE", "DISBAND":
+		return &CommandResult{Messages: []string{"[Group system coming soon.]"}} // TODO: leave group
+	case "TEND":
+		return &CommandResult{Messages: []string{"[Healing coming soon.]"}} // TODO: use Healing skill on target
+	case "BREAK":
+		return &CommandResult{Messages: []string{"[Object destruction coming soon.]"}} // TODO: destroy item with another item
 	case "ASSIST":
 		room := e.rooms[player.RoomNumber]
 		roomName := "unknown"
@@ -528,7 +662,31 @@ var allVerbs = []string{
 	"FLIP", "LATCH", "UNLATCH",
 	"DEPOSIT", "WITHDRAW", "TRAIN",
 	"MINE", "FORAGE",
-	"CRAFT", "FORGE", "SMELT", "WEAVE", "DYE", "BREW", "ANALYZE",
+	"CRAFT", "FORGE", "SMELT", "WEAVE", "DYE", "BREW", "ANALYZE", "WORK", "REPAIR",
+	// Movement/stealth
+	"HIDE", "SNEAK", "FLY", "ASCEND", "DESCEND", "LAND",
+	// Interaction
+	"PUT", "PLACE", "FILL", "MARK", "UNDRESS", "SKIN",
+	// Info
+	"BALANCE", "SPELL", "BRIEF", "FULL", "PROMPT", "UNPROMPT", "VERSION", "CREDITS",
+	// Communication
+	"THINK", "CANT",
+	// Combat (TODO: implement)
+	"ATTACK", "KILL", "SLAY", "SMITE", "ADVANCE", "RETREAT", "GUARD",
+	"BACKSTAB", "BITE", "AVOID", "BERSERK", "FRENZY",
+	"DEFENSIVE", "OFFENSIVE", "WARY", "NORMAL",
+	"INVOKE", "PREPARE", "CHANT", "COMMAND", "MASTER",
+	"NOCK", "LOAD", "SPECIALIZE",
+	// Skill-based (TODO: implement)
+	"DISARM", "STEAL", "FILCH", "ROB", "STALK",
+	"TEACH", "SELFTRAIN", "UNLEARN",
+	"ANOINT", "POISON", "TRAP",
+	"SURVEY", "SPLIT",
+	// Racial (TODO: implement)
+	"BLEND", "CALL", "TRANSFORM", "MOLD",
+	"DISGUISE", "SUBMIT", "ARREST",
+	"ENROLL", "INITIATE", "JOIN", "FOLLOW", "LEAVE", "DISBAND",
+	"TEND", "BREAK",
 	"SNIFF", "SMELL", "LISTEN",
 	// Communication
 	"WHISPER", "YELL", "SPEECH", "THINK", "CONTACT",
@@ -672,6 +830,7 @@ func (e *GameEngine) applyEntryScripts(ctx context.Context, player *Player, room
 	sc := e.RunEntryScripts(player, room)
 	if len(sc.Messages) > 0 {
 		result.Messages = append(result.Messages, sc.Messages...)
+		e.Events.Publish("script", fmt.Sprintf("IFENTRY fired for %s in room %d (%s)", player.FirstName, room.Number, room.Name))
 	}
 	if len(sc.RoomMsgs) > 0 {
 		result.RoomBroadcast = append(result.RoomBroadcast, sc.RoomMsgs...)
@@ -1033,13 +1192,48 @@ func (e *GameEngine) doGo(ctx context.Context, player *Player, args []string) *C
 		if itemDef == nil {
 			continue
 		}
-		if !isPortal(itemDef.Type) {
+		name := e.getItemNounName(itemDef)
+		if !matchesTarget(name, target, e.getAdjName(ri.Adj1)) {
 			continue
 		}
-		name := e.getItemNounName(itemDef)
-		if matchesTarget(name, target, e.getAdjName(ri.Adj1)) {
+		if isPortal(itemDef.Type) {
 			return e.doGoPortal(ctx, player, room, &room.Items[i], itemDef)
 		}
+		// Non-portal item matched — run IFPREVERB GO scripts (e.g., stairways, ladders)
+		sc := e.RunPreverbScripts(player, room, "GO", &room.Items[i], itemDef)
+		result := &CommandResult{}
+		result.Messages = append(result.Messages, sc.Messages...)
+		result.RoomBroadcast = append(result.RoomBroadcast, sc.RoomMsgs...)
+		result.GMBroadcast = append(result.GMBroadcast, sc.GMMsgs...)
+		if sc.Blocked && sc.MoveTo == 0 {
+			// CLEARVERB without MOVE — block the action
+			if len(result.Messages) == 0 {
+				result.Messages = []string{"You can't go that way."}
+			}
+			return result
+		}
+		if sc.MoveTo > 0 {
+			dest := e.rooms[sc.MoveTo]
+			if dest != nil {
+				oldRoom := player.RoomNumber
+				player.RoomNumber = sc.MoveTo
+				e.SavePlayer(ctx, player)
+				lookResult := e.doLook(player)
+				result.Messages = append(result.Messages, lookResult.Messages...)
+				result.RoomName = lookResult.RoomName
+				result.RoomDesc = lookResult.RoomDesc
+				result.Exits = lookResult.Exits
+				result.Items = lookResult.Items
+				result.OldRoom = oldRoom
+				result.OldRoomMsg = []string{fmt.Sprintf("%s leaves.", player.FirstName)}
+				result.RoomBroadcast = append(result.RoomBroadcast, fmt.Sprintf("%s arrives.", player.FirstName))
+				e.applyEntryScripts(ctx, player, dest, result)
+			}
+		}
+		if len(result.Messages) == 0 {
+			result.Messages = []string{"You can't go that way."}
+		}
+		return result
 	}
 
 	return &CommandResult{Messages: []string{"You don't see that here."}}
@@ -1065,7 +1259,7 @@ func (e *GameEngine) doGoPortal(ctx context.Context, player *Player, room *gamew
 	if len(sc.GMMsgs) > 0 {
 		result.GMBroadcast = append(result.GMBroadcast, sc.GMMsgs...)
 	}
-	if sc.Blocked {
+	if sc.Blocked && sc.MoveTo == 0 {
 		if len(result.Messages) == 0 {
 			result.Messages = []string{"You can't go that way."}
 		}
@@ -1178,7 +1372,7 @@ func (e *GameEngine) doItemInteraction(ctx context.Context, player *Player, verb
 			result.Messages = append(result.Messages, sc2.Messages...)
 			result.RoomBroadcast = append(result.RoomBroadcast, sc2.RoomMsgs...)
 			result.GMBroadcast = append(result.GMBroadcast, sc2.GMMsgs...)
-			if sc.Blocked || sc2.Blocked {
+			if (sc.Blocked || sc2.Blocked) && sc.MoveTo == 0 && sc2.MoveTo == 0 {
 				if len(result.Messages) == 0 {
 					result.Messages = []string{"You can't do that."}
 				}
@@ -2077,6 +2271,173 @@ func (e *GameEngine) doForage(player *Player) *CommandResult {
 	return &CommandResult{Messages: []string{"There is nothing to forage here."}}
 }
 
+func (e *GameEngine) doHide(ctx context.Context, player *Player) *CommandResult {
+	if player.Hidden {
+		return &CommandResult{Messages: []string{"You are already hidden."}}
+	}
+	// TODO: skill check against Stealth (skill 33) and room perception
+	player.Hidden = true
+	e.SavePlayer(ctx, player)
+	return &CommandResult{
+		Messages:      []string{"You attempt to hide in the shadows."},
+		RoomBroadcast: []string{fmt.Sprintf("%s fades into the shadows.", player.FirstName)},
+	}
+}
+
+func (e *GameEngine) doSneak(ctx context.Context, player *Player, args []string) *CommandResult {
+	if !player.Hidden {
+		return &CommandResult{Messages: []string{"You must be hidden first. Try HIDE."}}
+	}
+	if len(args) == 0 {
+		return &CommandResult{Messages: []string{"Sneak where?"}}
+	}
+	dir := strings.ToUpper(args[0])
+	dirMap := map[string]string{
+		"N": "N", "NORTH": "N", "S": "S", "SOUTH": "S",
+		"E": "E", "EAST": "E", "W": "W", "WEST": "W",
+		"NE": "NE", "NORTHEAST": "NE", "NW": "NW", "NORTHWEST": "NW",
+		"SE": "SE", "SOUTHEAST": "SE", "SW": "SW", "SOUTHWEST": "SW",
+		"U": "U", "UP": "U", "D": "D", "DOWN": "D", "O": "O", "OUT": "O",
+	}
+	if mapped, ok := dirMap[dir]; ok {
+		dir = mapped
+	}
+	// TODO: stealth skill check to stay hidden while moving
+	result := e.doMove(ctx, player, dir)
+	// Player stays hidden after sneak (skill check could fail and reveal)
+	return result
+}
+
+func (e *GameEngine) doFly(ctx context.Context, player *Player) *CommandResult {
+	if player.Position == 4 {
+		return &CommandResult{Messages: []string{"You are already flying."}}
+	}
+	// Drakin can always fly; others need CanFly (spell/item)
+	if player.Race != 6 && !player.CanFly {
+		return &CommandResult{Messages: []string{"You can't fly."}}
+	}
+	room := e.rooms[player.RoomNumber]
+	if room != nil && (room.Terrain == "CAVE" || room.Terrain == "DEEPCAVE" || room.Terrain == "INDOOR_FLOOR" || room.Terrain == "INDOOR_GROUND") {
+		return &CommandResult{Messages: []string{"There isn't enough room to fly here."}}
+	}
+	player.Position = 4
+	e.SavePlayer(ctx, player)
+	return &CommandResult{
+		Messages:      []string{"You take to the air!"},
+		RoomBroadcast: []string{fmt.Sprintf("%s takes flight!", player.FirstName)},
+	}
+}
+
+func (e *GameEngine) doMark(ctx context.Context, player *Player, args []string) *CommandResult {
+	if len(args) == 0 {
+		// Show marks
+		if player.Marks == nil || len(player.Marks) == 0 {
+			return &CommandResult{Messages: []string{"You have no marks set."}}
+		}
+		var msgs []string
+		msgs = append(msgs, "Your marks:")
+		for i := 1; i <= 10; i++ {
+			if roomNum, ok := player.Marks[i]; ok {
+				name := fmt.Sprintf("Room %d", roomNum)
+				if r := e.rooms[roomNum]; r != nil {
+					name = r.Name
+				}
+				msgs = append(msgs, fmt.Sprintf("  Mark %d: %s (%d)", i, name, roomNum))
+			}
+		}
+		return &CommandResult{Messages: msgs}
+	}
+	num := 0
+	fmt.Sscanf(args[0], "%d", &num)
+	if num < 1 || num > 10 {
+		return &CommandResult{Messages: []string{"Mark number must be 1-10."}}
+	}
+	if player.Marks == nil {
+		player.Marks = make(map[int]int)
+	}
+	player.Marks[num] = player.RoomNumber
+	e.SavePlayer(ctx, player)
+	room := e.rooms[player.RoomNumber]
+	name := fmt.Sprintf("room %d", player.RoomNumber)
+	if room != nil {
+		name = room.Name
+	}
+	return &CommandResult{Messages: []string{fmt.Sprintf("Mark %d set to %s.", num, name)}}
+}
+
+func (e *GameEngine) doUndress(ctx context.Context, player *Player) *CommandResult {
+	if len(player.Worn) == 0 {
+		return &CommandResult{Messages: []string{"You aren't wearing anything to remove."}}
+	}
+	// Remove the last worn item
+	item := player.Worn[len(player.Worn)-1]
+	player.Worn = player.Worn[:len(player.Worn)-1]
+	player.Inventory = append(player.Inventory, item)
+	e.SavePlayer(ctx, player)
+	itemDef := e.items[item.Archetype]
+	name := "something"
+	if itemDef != nil {
+		name = e.formatItemName(itemDef, item.Adj1, item.Adj2, item.Adj3)
+	}
+	return &CommandResult{Messages: []string{fmt.Sprintf("You remove %s.", name)}}
+}
+
+func (e *GameEngine) doBalance(player *Player) *CommandResult {
+	room := e.rooms[player.RoomNumber]
+	if room == nil || !containsModifier(room.Modifiers, "BANK") {
+		return &CommandResult{Messages: []string{"You need to be at a bank to check your balance."}}
+	}
+	msgs := []string{"=== Bank Balance ==="}
+	total := player.BankGold*100 + player.BankSilver*10 + player.BankCopper
+	if total == 0 {
+		msgs = append(msgs, "Your account is empty.")
+	} else {
+		msgs = append(msgs, fmt.Sprintf("Balance: %s", formatPrice(total)))
+	}
+	return &CommandResult{Messages: msgs}
+}
+
+func (e *GameEngine) doSpellList(player *Player) *CommandResult {
+	if player.KnownSpells == nil || len(player.KnownSpells) == 0 {
+		return &CommandResult{Messages: []string{"You don't know any spells."}}
+	}
+	msgs := []string{"=== Known Spells ==="}
+	for id := range player.KnownSpells {
+		spell := FindSpellByID(id)
+		if spell != nil {
+			msgs = append(msgs, fmt.Sprintf("  %s (%s, Level %d)", spell.Name, spell.School, spell.Level))
+		}
+	}
+	return &CommandResult{Messages: msgs}
+}
+
+func (e *GameEngine) doThink(player *Player, args []string) *CommandResult {
+	if len(args) == 0 {
+		return &CommandResult{Messages: []string{"Think what?"}}
+	}
+	text := extractOriginalArgs(strings.Join(args, " "))
+	if text == "" {
+		text = strings.Join(args, " ")
+	}
+	// TODO: check if player has telepathy ability (race, spell, item)
+	return &CommandResult{
+		Messages:        []string{fmt.Sprintf("You think, \"%s\"", text)},
+		GlobalBroadcast: []string{fmt.Sprintf("[Telepathy] %s thinks, \"%s\"", player.FirstName, text)},
+	}
+}
+
+func (e *GameEngine) doCant(player *Player, args []string) *CommandResult {
+	if len(args) == 0 {
+		return &CommandResult{Messages: []string{"Cant what?"}}
+	}
+	// TODO: requires Legerdemain skill level 6+ to send and receive
+	text := strings.Join(args, " ")
+	return &CommandResult{
+		Messages:      []string{fmt.Sprintf("You cant, \"%s\"", text)},
+		RoomBroadcast: []string{fmt.Sprintf("%s mutters something under their breath.", player.FirstName)},
+	}
+}
+
 func (e *GameEngine) doRead(player *Player, args []string) *CommandResult {
 	if len(args) == 0 {
 		return &CommandResult{Messages: []string{"Read what?"}}
@@ -2326,11 +2687,25 @@ func (e *GameEngine) formatItemName(def *gameworld.ItemDef, adj1, adj2, adj3 int
 	parts = append(parts, nounName)
 
 	name := strings.Join(parts, " ")
-	article := strings.ToLower(def.Article)
-	if article == "" || article == "a" {
+	article := strings.ToUpper(def.Article)
+	if article == "" || article == "A" {
+		// Auto-detect "an" for words starting with a vowel sound
+		first := strings.ToLower(name[:1])
+		if first == "a" || first == "e" || first == "i" || first == "o" || first == "u" {
+			return "an " + name
+		}
 		return "a " + name
 	}
-	return article + " " + name
+	if article == "AN" {
+		return "an " + name
+	}
+	if article == "THE" {
+		return "the " + name
+	}
+	if article == "SOME" {
+		return "some " + name
+	}
+	return strings.ToLower(article) + " " + name
 }
 
 func (e *GameEngine) getItemNounName(def *gameworld.ItemDef) string {

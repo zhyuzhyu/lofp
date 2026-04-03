@@ -9,10 +9,12 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/jonradoff/lofp/internal/auth"
+	"github.com/jonradoff/lofp/internal/capture"
 	"github.com/jonradoff/lofp/internal/engine"
 	"github.com/jonradoff/lofp/internal/gamelog"
 	"github.com/jonradoff/lofp/internal/gameworld"
@@ -26,6 +28,7 @@ type Server struct {
 	auth        *auth.Service
 	gamelog     *gamelog.Logger
 	hub         *hub.Hub
+	captures    *capture.Store
 	router      *mux.Router
 	upgrader    websocket.Upgrader
 	sessions    map[string]*Session
@@ -34,19 +37,21 @@ type Server struct {
 }
 
 type Session struct {
-	Player *engine.Player
-	Conn   *websocket.Conn
-	mu     sync.Mutex
+	Player    *engine.Player
+	Conn      *websocket.Conn
+	mu        sync.Mutex
+	CaptureID string // active capture session ID, empty if not recording
 }
 
 
-func NewServer(ge *engine.GameEngine, parsed *gameworld.ParsedData, authSvc *auth.Service, gl *gamelog.Logger, h *hub.Hub, frontendURL string) *Server {
+func NewServer(ge *engine.GameEngine, parsed *gameworld.ParsedData, authSvc *auth.Service, gl *gamelog.Logger, h *hub.Hub, cs *capture.Store, frontendURL string) *Server {
 	s := &Server{
 		engine:      ge,
 		parsed:      parsed,
 		auth:        authSvc,
 		gamelog:     gl,
 		hub:         h,
+		captures:    cs,
 		sessions:    make(map[string]*Session),
 		frontendURL: frontendURL,
 	}
@@ -126,8 +131,12 @@ func (s *Server) Router() *mux.Router {
 func (s *Server) setupRoutes() {
 	s.router.Use(s.corsMiddleware)
 
+	// Health check (vibectl compatible)
+	s.router.HandleFunc("/healthz", s.handleHealthz).Methods("GET")
+
 	// Game WebSocket
 	s.router.HandleFunc("/ws/game", s.handleGameWS)
+	s.router.HandleFunc("/ws/events", s.handleEventsWS)
 
 	// REST endpoints
 	api := s.router.PathPrefix("/api").Subrouter()
@@ -141,6 +150,11 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/characters", s.handleListCharacters).Methods("GET")
 	api.HandleFunc("/characters", s.handleCreateCharacter).Methods("POST")
 	api.HandleFunc("/characters/{firstName}/gm", s.handleToggleGM).Methods("PUT")
+
+	// Session captures (authenticated)
+	api.HandleFunc("/captures", s.handleListCaptures).Methods("GET")
+	api.HandleFunc("/captures/{id}", s.handleGetCapture).Methods("GET")
+	api.HandleFunc("/captures/{id}/text", s.handleGetCaptureText).Methods("GET")
 
 	// Game world data (admin only)
 	api.HandleFunc("/stats", s.handleStats).Methods("GET")
@@ -223,6 +237,74 @@ type CreateCharMsg struct {
 
 type AuthMsg struct {
 	Token string `json:"token"`
+}
+
+func (s *Server) handleEventsWS(w http.ResponseWriter, r *http.Request) {
+	// Validate admin auth via query param token
+	token := r.URL.Query().Get("token")
+	if token == "" || s.auth == nil {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	accountID, err := s.auth.ValidateJWT(token)
+	if err != nil || accountID == "" {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	account, err := s.auth.GetAccount(r.Context(), accountID)
+	if err != nil || account == nil || !account.IsAdmin {
+		http.Error(w, "forbidden", 403)
+		return
+	}
+
+	conn, err := s.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	// Subscribe to engine events
+	ch := s.engine.Events.Subscribe()
+	defer s.engine.Events.Unsubscribe(ch)
+
+	// Send initial status
+	conn.WriteJSON(map[string]interface{}{
+		"type": "event",
+		"data": engine.EngineEvent{
+			Time:     time.Now(),
+			Category: "system",
+			Message:  fmt.Sprintf("Event monitor connected. Game time: Hour %d, Day %d of %s, Year %d", engine.GameHour(), engine.GameDay(), engine.GameMonthName(), engine.GameYear()),
+		},
+	})
+
+	// Read pump (just to detect disconnect)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
+
+	// Write pump
+	for {
+		select {
+		case event, ok := <-ch:
+			if !ok {
+				return
+			}
+			if err := conn.WriteJSON(map[string]interface{}{
+				"type": "event",
+				"data": event,
+			}); err != nil {
+				return
+			}
+		case <-done:
+			return
+		}
+	}
 }
 
 func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
@@ -343,6 +425,35 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 				s.broadcastToGMs(result.GMBroadcast)
 			}
 
+		case "start_capture":
+			if session.Player == nil || accountID == "" {
+				log.Printf("capture: cannot start — player=%v accountID=%q", session.Player != nil, accountID)
+				continue
+			}
+			if session.CaptureID != "" {
+				log.Printf("capture: already recording %s", session.CaptureID)
+				continue
+			}
+			ctx := context.Background()
+			id, err := s.captures.Start(ctx, accountID, session.Player.FullName())
+			if err != nil {
+				log.Printf("capture: start failed: %v", err)
+			} else if id != "" {
+				session.CaptureID = id
+				log.Printf("capture: started %s for %s", id, session.Player.FullName())
+				s.sendWSMessage(session, "capture_status", map[string]interface{}{"recording": true, "id": id})
+			}
+			continue
+
+		case "stop_capture":
+			if session.CaptureID != "" {
+				ctx := context.Background()
+				s.captures.Stop(ctx, session.CaptureID)
+				s.sendWSMessage(session, "capture_status", map[string]interface{}{"recording": false})
+				session.CaptureID = ""
+			}
+			continue
+
 		case "command":
 			if session.Player == nil {
 				s.sendWSResult(session, &engine.CommandResult{
@@ -358,6 +469,21 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 			result.PlayerState = session.Player
 			result.PromptIndicators = session.Player.PromptIndicators()
 			s.sendWSResult(session, result)
+
+			// Capture input and output
+			if session.CaptureID != "" {
+				var lines []capture.Line
+				lines = append(lines, capture.Line{Time: time.Now(), Type: "input", Text: cmd.Input})
+				for _, m := range result.Messages {
+					lines = append(lines, capture.Line{Time: time.Now(), Type: "output", Text: m})
+				}
+				log.Printf("capture: appending %d lines to %s", len(lines), session.CaptureID)
+				go func() {
+					if err := s.captures.AppendLines(context.Background(), session.CaptureID, lines); err != nil {
+						log.Printf("capture: append failed: %v", err)
+					}
+				}()
+			}
 
 			// Broadcast to others in the room (excluding emote target if they get a special message)
 			if len(result.RoomBroadcast) > 0 {
@@ -399,6 +525,10 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 			fmt.Sprintf("%s (%s)", authName, authEmail), session.Player.RoomNumber, "")
 		s.broadcastGlobal(session.Player.FirstName,
 			[]string{fmt.Sprintf("** %s has disconnected.", session.Player.FirstName)})
+		if session.CaptureID != "" {
+			s.captures.Stop(context.Background(), session.CaptureID)
+			session.CaptureID = ""
+		}
 		s.hub.UnregisterPlayer(session.Player.FirstName)
 		s.mu.Lock()
 		delete(s.sessions, session.Player.FirstName)
@@ -423,6 +553,19 @@ func (s *Server) sendWSMessage(session *Session, msgType string, payload interfa
 	data, _ := json.Marshal(payload)
 	msg := WSMessage{Type: msgType, Data: data}
 	session.Conn.WriteJSON(msg)
+
+	// Capture broadcast messages
+	if session.CaptureID != "" && msgType == "broadcast" {
+		if m, ok := payload.(map[string]interface{}); ok {
+			if msgs, ok := m["messages"].([]string); ok {
+				var lines []capture.Line
+				for _, text := range msgs {
+					lines = append(lines, capture.Line{Time: time.Now(), Type: "broadcast", Text: text})
+				}
+				go s.captures.AppendLines(context.Background(), session.CaptureID, lines)
+			}
+		}
+	}
 }
 
 // broadcastToRoom sends messages to all players in a room except the excluded player.
@@ -581,6 +724,20 @@ func isExcluded(name string, excludes []string) bool {
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	s.mu.RLock()
+	sessions := len(s.sessions)
+	s.mu.RUnlock()
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":   "ok",
+		"sessions": sessions,
+		"rooms":    len(s.parsed.Rooms),
+		"items":    len(s.parsed.Items),
+		"monsters": len(s.parsed.Monsters),
+	})
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
@@ -1145,6 +1302,68 @@ func (s *Server) handleAdminReassignCharacter(w http.ResponseWriter, r *http.Req
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(player)
+}
+
+func (s *Server) handleListCaptures(w http.ResponseWriter, r *http.Request) {
+	accountID := s.getAccountID(r)
+	if accountID == "" {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	sessions, err := s.captures.List(r.Context(), accountID)
+	if err != nil {
+		http.Error(w, "failed to list captures", 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sessions)
+}
+
+func (s *Server) handleGetCapture(w http.ResponseWriter, r *http.Request) {
+	accountID := s.getAccountID(r)
+	if accountID == "" {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	vars := mux.Vars(r)
+	sess, err := s.captures.Get(r.Context(), vars["id"])
+	if err != nil || sess == nil {
+		http.Error(w, "capture not found", 404)
+		return
+	}
+	if sess.AccountID != accountID {
+		http.Error(w, "forbidden", 403)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sess)
+}
+
+func (s *Server) handleGetCaptureText(w http.ResponseWriter, r *http.Request) {
+	accountID := s.getAccountID(r)
+	// Also accept token as query param for direct download links
+	if accountID == "" {
+		if token := r.URL.Query().Get("token"); token != "" && s.auth != nil {
+			accountID, _ = s.auth.ValidateJWT(token)
+		}
+	}
+	if accountID == "" {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	vars := mux.Vars(r)
+	sess, err := s.captures.Get(r.Context(), vars["id"])
+	if err != nil || sess == nil {
+		http.Error(w, "capture not found", 404)
+		return
+	}
+	if sess.AccountID != accountID {
+		http.Error(w, "forbidden", 403)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"capture-%s.txt\"", vars["id"]))
+	w.Write([]byte(sess.ExportText()))
 }
 
 func (s *Server) handleAdminLogs(w http.ResponseWriter, r *http.Request) {

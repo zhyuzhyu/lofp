@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useAuth } from '../App'
 
 interface Stats {
@@ -265,7 +265,22 @@ const EventColors: Record<string, string> = {
   gm_revoke: 'text-red-400',
 }
 
-type AdminTab = 'rooms' | 'players' | 'users' | 'items' | 'monsters' | 'logs'
+interface EngineEvent {
+  time: string
+  category: string
+  message: string
+}
+
+const CategoryColors: Record<string, string> = {
+  system: 'text-blue-400',
+  time: 'text-yellow-400',
+  monster: 'text-red-400',
+  script: 'text-green-400',
+  world: 'text-purple-400',
+  weather: 'text-cyan-400',
+}
+
+type AdminTab = 'rooms' | 'players' | 'users' | 'items' | 'monsters' | 'logs' | 'events'
 
 export default function AdminPanel() {
   const { user } = useAuth()
@@ -297,6 +312,12 @@ export default function AdminPanel() {
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [logEventFilter, setLogEventFilter] = useState('')
   const [logPlayerFilter, setLogPlayerFilter] = useState('')
+  // Event Monitor
+  const [events, setEvents] = useState<EngineEvent[]>([])
+  const [eventWs, setEventWs] = useState<WebSocket | null>(null)
+  const [eventConnected, setEventConnected] = useState(false)
+  const [eventCatFilter, setEventCatFilter] = useState('')
+  const eventScrollRef = useRef<HTMLDivElement>(null)
 
   const authHeaders = (): Record<string, string> => {
     if (!user?.token) return {}
@@ -335,6 +356,39 @@ export default function AdminPanel() {
       fetchLogs()
     }
   }, [tab])
+
+  // Auto-scroll events
+  useEffect(() => {
+    if (eventScrollRef.current) {
+      eventScrollRef.current.scrollTop = eventScrollRef.current.scrollHeight
+    }
+  }, [events])
+
+  // Event monitor WebSocket — connect only when on events tab
+  useEffect(() => {
+    if (tab !== 'events' || !user?.token) {
+      if (eventWs) { eventWs.close(); setEventWs(null); setEventConnected(false) }
+      return
+    }
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const ws = new WebSocket(`${protocol}//${window.location.host}/ws/events?token=${user.token}`)
+    setEventWs(ws)
+    ws.onopen = () => setEventConnected(true)
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data)
+      if (msg.type === 'event' && msg.data) {
+        setEvents(prev => {
+          const next = [...prev, msg.data as EngineEvent]
+          return next.length > 500 ? next.slice(-500) : next
+        })
+      }
+    }
+    ws.onclose = () => {
+      setEventConnected(false)
+      setEvents(prev => [...prev, { time: new Date().toISOString(), category: 'system', message: 'Event monitor disconnected.' }])
+    }
+    return () => { ws.close() }
+  }, [tab, user?.token])
 
   const sortByNumberMatch = <T extends { number: number }>(list: T[], query: string): T[] => {
     const trimmed = query.trim()
@@ -511,7 +565,7 @@ export default function AdminPanel() {
     <div className="flex flex-col h-full font-mono text-sm">
       {/* Tab bar */}
       <div className="flex gap-1 px-4 py-2 bg-[#111] border-b border-[#333]">
-        {(['rooms', 'items', 'monsters', 'players', 'users', 'logs'] as AdminTab[]).map(t => (
+        {(['rooms', 'items', 'monsters', 'players', 'users', 'logs', 'events'] as AdminTab[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -935,7 +989,7 @@ export default function AdminPanel() {
                       <span className="text-gray-600 text-[10px]">{RaceNames[p.race] || 'Unknown'}</span>
                       <span className="text-gray-600 text-[10px]">Lvl {p.level}</span>
                       <span className="text-gray-600 text-[10px]">Room {p.roomNumber}</span>
-                      <span className="text-gray-600 text-[10px]">HP {p.bodyPoints}/{p.maxBodyPoints}</span>
+                      <span className="text-gray-600 text-[10px]">BP {p.bodyPoints}/{p.maxBodyPoints}</span>
                     </div>
                   </div>
                 ))}
@@ -1021,7 +1075,7 @@ export default function AdminPanel() {
                   <div className="bg-[#111] border border-[#333] rounded p-4">
                     <h3 className="text-gray-400 text-xs uppercase mb-2">Resources</h3>
                     <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div><span className="text-red-400">HP:</span> {selectedPlayer.bodyPoints}/{selectedPlayer.maxBodyPoints}</div>
+                      <div><span className="text-red-400">BP:</span> {selectedPlayer.bodyPoints}/{selectedPlayer.maxBodyPoints}</div>
                       <div><span className="text-yellow-400">FT:</span> {selectedPlayer.fatigue}/{selectedPlayer.maxFatigue}</div>
                       <div><span className="text-blue-400">MP:</span> {selectedPlayer.mana}/{selectedPlayer.maxMana}</div>
                       <div><span className="text-purple-400">PSI:</span> {selectedPlayer.psi}/{selectedPlayer.maxPsi}</div>
@@ -1190,7 +1244,7 @@ export default function AdminPanel() {
                               <span className="text-gray-600 text-[10px]">{RaceNames[c.race] || 'Unknown'}</span>
                               <span className="text-gray-600 text-[10px]">Lvl {c.level}</span>
                               <span className="text-gray-600 text-[10px]">Room {c.roomNumber}</span>
-                              <span className="text-gray-600 text-[10px]">HP {c.bodyPoints}/{c.maxBodyPoints}</span>
+                              <span className="text-gray-600 text-[10px]">BP {c.bodyPoints}/{c.maxBodyPoints}</span>
                             </div>
                           </button>
                         ))}
@@ -1278,6 +1332,55 @@ export default function AdminPanel() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+        {/* ===== EVENTS TAB ===== */}
+        {tab === 'events' && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex gap-2 p-3 bg-[#111] border-b border-[#333] items-center">
+              <div className={`w-2 h-2 rounded-full ${eventConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-gray-400 text-xs">{eventConnected ? 'Connected' : 'Disconnected'}</span>
+              <select
+                value={eventCatFilter}
+                onChange={e => setEventCatFilter(e.target.value)}
+                className="bg-[#0a0a0a] border border-[#444] rounded px-2 py-1 text-gray-200 focus:border-amber-500 focus:outline-none text-xs"
+              >
+                <option value="">All categories</option>
+                <option value="system">System</option>
+                <option value="time">Time</option>
+                <option value="monster">Monster</option>
+                <option value="script">Script</option>
+                <option value="world">World State</option>
+                <option value="weather">Weather</option>
+              </select>
+              <button
+                onClick={() => setEvents([])}
+                className="px-3 py-1 bg-[#222] border border-[#444] rounded text-xs text-gray-300 hover:border-amber-500"
+              >
+                Clear
+              </button>
+              <span className="text-gray-600 text-xs ml-auto">{events.length} events</span>
+            </div>
+            <div ref={eventScrollRef} className="flex-1 overflow-y-auto font-mono text-xs p-2 bg-[#0a0a0a]">
+              {events
+                .filter(ev => !eventCatFilter || ev.category === eventCatFilter)
+                .map((ev, i) => {
+                  const t = new Date(ev.time)
+                  const ts = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                  return (
+                    <div key={i} className="py-0.5 border-b border-[#111] flex gap-2">
+                      <span className="text-gray-600 w-20 shrink-0">{ts}</span>
+                      <span className={`w-16 shrink-0 ${CategoryColors[ev.category] || 'text-gray-400'}`}>
+                        [{ev.category}]
+                      </span>
+                      <span className="text-gray-300">{ev.message}</span>
+                    </div>
+                  )
+                })}
+              {events.length === 0 && (
+                <div className="text-gray-600 text-center py-8">Waiting for events...</div>
+              )}
             </div>
           </div>
         )}

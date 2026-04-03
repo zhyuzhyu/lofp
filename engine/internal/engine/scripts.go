@@ -699,6 +699,81 @@ func (sc *ScriptContext) getVar(name string) int {
 	// Gender
 	case "GEN", "GENT":
 		return sc.Player.Gender
+	// Physical attributes
+	case "HEI":
+		return sc.Player.Height
+	case "HEIT":
+		return sc.Player.HeightTrue
+	case "WEI":
+		return sc.Player.Weight
+	case "WEIT":
+		return sc.Player.WeightTrue
+	case "AGE":
+		return sc.Player.Age
+	case "AGET":
+		return sc.Player.AgeTrue
+	// Form states
+	case "WOLFFORM":
+		if sc.Player.WolfForm { return 1 }
+		return 0
+	case "SLIMEFORM":
+		if sc.Player.SlimeForm { return 1 }
+		return 0
+	case "OTHERFORM":
+		if sc.Player.WolfForm || sc.Player.SlimeForm || (sc.Player.Race == 8 && sc.Player.Hidden) { return 1 }
+		return 0
+	case "UNDEAD":
+		if sc.Player.Undead { return 1 }
+		return 0
+	case "DISGUISED":
+		if sc.Player.Disguised { return 1 }
+		return 0
+	case "SLEEPING":
+		if sc.Player.Sleeping { return 1 }
+		return 0
+	case "SUBMITTING":
+		if sc.Player.Submitting { return 1 }
+		return 0
+	case "ROUNDTIME":
+		return sc.Player.RoundTime
+	case "SPELLNUM":
+		return sc.Player.PreparedSpell
+	case "POSITION":
+		return sc.Player.Position
+	// Wealth
+	case "WEALTH":
+		return sc.Player.Gold*100 + sc.Player.Silver*10 + sc.Player.Copper
+	// Room
+	case "WILDERNESS":
+		if sc.Room != nil {
+			switch sc.Room.Terrain {
+			case "FOREST", "MOUNTAIN", "PLAIN", "SWAMP", "JUNGLE", "WASTE":
+				return 1
+			}
+		}
+		return 0
+	case "ASTRAL":
+		if sc.Room != nil && sc.Room.Terrain == "ASTRAL" { return 1 }
+		return 0
+	case "TERRAIN":
+		if sc.Room != nil {
+			// Return a stable hash for terrain comparisons
+			terrainMap := map[string]int{
+				"INDOOR_FLOOR": 1, "INDOOR_GROUND": 2, "CAVE": 3, "DEEPCAVE": 4,
+				"FOREST": 5, "MOUNTAIN": 6, "PLAIN": 7, "SWAMP": 8, "JUNGLE": 9,
+				"WASTE": 10, "OUTDOOR_OTHER": 11, "OUTDOOR_FLOOR": 12, "AERIAL": 13,
+				"ASTRAL": 14, "UNDERSEA": 15,
+			}
+			return terrainMap[sc.Room.Terrain]
+		}
+		return 0
+	case "REGION":
+		return 0 // TODO: implement room regions
+	case "OBJWEIGHT":
+		if sc.ItemDef != nil { return sc.ItemDef.Weight }
+		return 0
+	case "PLAYERNUM":
+		return 0 // TODO: unique player number
 	}
 	return 0
 }

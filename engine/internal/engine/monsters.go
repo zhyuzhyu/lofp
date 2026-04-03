@@ -31,11 +31,12 @@ func newMonsterManager() *monsterManager {
 	}
 }
 
-// SpawnInitialMonsters populates the world from MonsterList entries.
-func (mm *monsterManager) SpawnInitialMonsters(monsterLists []gameworld.MonsterList, monsters map[int]*gameworld.MonsterDef) {
+// SpawnInitialMonsters populates the world from MonsterList entries. Returns total spawned.
+func (mm *monsterManager) SpawnInitialMonsters(monsterLists []gameworld.MonsterList, monsters map[int]*gameworld.MonsterDef) int {
 	mm.mu.Lock()
 	defer mm.mu.Unlock()
 
+	total := 0
 	for _, ml := range monsterLists {
 		def := monsters[ml.MonsterID]
 		if def == nil {
@@ -57,8 +58,10 @@ func (mm *monsterManager) SpawnInitialMonsters(monsterLists []gameworld.MonsterL
 			mm.instances = append(mm.instances, inst)
 			mm.monstersByRoom[ml.Room] = append(mm.monstersByRoom[ml.Room], idx)
 			mm.nextID++
+			total++
 		}
 	}
+	return total
 }
 
 // MonstersInRoom returns alive monster instances in a given room.
