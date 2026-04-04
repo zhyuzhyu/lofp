@@ -3,19 +3,29 @@
 ## v0.97 — 2026-04-04
 
 ### Combat System
-- **ATTACK/KILL <monster>** — engage in melee combat with to-hit and damage resolution
-- **To-hit formula**: weapon skill + stats + level vs monster defense, clamped 5-95%
-- **Damage**: weapon Parameter1 roll + STR/AGI bonus, reduced by monster armor and immunities
-- **Monster attacks back** every tick based on Speed, with attack/defense resolution
-- **Hostile monsters** (strategy >= 301) auto-attack players entering their room
-- **Monster flee AI**: strategy-based (non-hostile flee at 60% HP, animals at 50%, hostile-flee at 30%)
+- **ATTACK/KILL <monster>** — original format output: `[ToHit: X, Roll: Y] Hit!/Miss./Excellent Hit!`
+- **Damage severity tiers**: Puny, Grazing, Insignificant, Minor, Passable, Good, Masterful, Grisly, Severe, Ghastly
+- **Attack verbs by weapon type**: swings (slash), thrusts (pierce/pole), slashes (claw)
+- **Body part targeting**: head, body, right/left arm, right/left leg, back; animal parts for non-humanoids
+- **Weapon elemental crits (VAL3)**: 10-50% chance heat/cold/electric bonus damage with VAL5 max
+- **Racial slayer weapons (VAL3 21-32)**: bonus damage vs Undead, Dragon, Giant, Troll, etc.
+- **Weapon poison (VAL4 51-100)**: delivers poison on hit
+- **MAGICWEAPON gating**: some monsters require enchanted weapons (level 1/2/3), shows TEXI text
+- **Monster guard behavior**: guard monsters intercept attacks on their charge
+- **Cry for law (strategy 1-25, 101-125)**: attacking lawful NPCs alerts nearby guards
+- **Monster poison/disease/fatigue**: % chance per hit to inflict conditions
+- **EXTRABODY**: monsters have 50-100% extra HP not counted toward XP
+- **Weather combat modifiers**: rain -10, heavy rain -20, thunderstorm -30, gale -40, hurricane -50 (outdoor only)
+- **Arena rooms**: ExtraMod ARENA prevents lethal damage
+- **Alignment shifts**: killing evil monsters → more good, good → more evil
+- **Hostile monsters** (strategy 301+) auto-attack players entering rooms
+- **Monster flee AI**: strategy-based (fight to death 501+, flee when wounded 301-500, animals flee 201-300)
 - **Monster special attacks**: SPECUSE/SPECDMG with TEXX text overrides
 - **FLEE command**: escape combat (quickness/agility based chance, random exit)
-- **Combat stances**: OFFENSIVE (+15 att/-15 def), DEFENSIVE (-15/+15), BERSERK (+25/-25, Murg only), WARY (-5/+5)
-- **Roundtime**: weapon speed + quickness-based delay between attacks
-- **Death**: BP reaches 0 → Eternity, Inc. → DEPART to respawn at starting room with 25% BP
-- **Experience**: gained from kills (based on monster stats), level-up at level*1000 XP
-- **Body part hit locations**: random (head, body, arms, legs, back) for flavor text
+- **Combat stances**: OFFENSIVE (+15/-15), DEFENSIVE (-15/+15), BERSERK (+25/-25, Murg), WARY (-5/+5)
+- **Roundtime**: `[Round: X sec]` format, quickness-based
+- **Death**: Eternity, Inc. message (matching original text) → DEPART to respawn
+- **Real XP table**: 100-level XP/build-point table from GM Manual, build points = 20 + 10*level
 
 ### Magic System
 - **PREPARE <spell>** then **CAST [target]** — two-step spell casting
@@ -33,10 +43,22 @@
 - **Mind over Mind**: Psychic Blast, Psychic Crush, Terror, Pain, Screen/Shield/Barrier/Fortress defense chain
 - **Psi point costs**, skill checks (Psionics + school skill + willpower), psi resistance
 
+### World Systems
+- **SKIN <dead monster>** — weighted random drops from SkinItem definitions with SkinAdj
+- **Container traps (VAL4)**: 13 trap types (needle, gas, acid, blade, explosive, glyph spells) trigger on OPEN
+- **Highlander BLEND**: hide in mountain/cave terrain (race-restricted)
+
+### Race-Specific Emotes
+- **Drakin**: flick tongue, bare teeth, spread/fold wings, swish tail
+- **Aelfen**: rub ears · **Highlander**: pull beard
+- **Wolfling**: scratch behind ear, bare fangs, chase tail, scent air, whine, droop tail
+- **23 self-emotes**: fume, squint, hum, sneeze, crack knuckles, bat eyelashes, bounce, strike pose, and more
+
 ### Infrastructure
-- **PlayerMessageFunc**: engine can send targeted messages to specific players from background tasks
-- **Monster combat tick**: integrated into existing 3-second monster behavior loop
+- **PlayerMessageFunc**: targeted messages from background tasks (combat, aggro)
+- **Monster combat tick**: integrated into 3-second behavior loop
 - **Combat disengagement**: moving rooms, fleeing, or target dying clears combat state
+- **Character name validation**: reserved-word filter (monster names, profanity, game terms)
 
 ## v0.96 — 2026-04-04
 

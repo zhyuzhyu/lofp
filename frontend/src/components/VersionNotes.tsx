@@ -10,25 +10,33 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
         <div className="space-y-6 text-sm">
           <section>
             <h2 className="text-amber-400 text-lg font-bold mb-1">v0.97 &mdash; April 4, 2026</h2>
-            <p className="text-gray-400 mb-3">Combat, spells, and psionics &mdash; fight monsters, cast spells, project disciplines.</p>
+            <p className="text-gray-400 mb-3">Combat, spells, psionics, and GM Manual fidelity &mdash; fight monsters, cast spells, project disciplines.</p>
 
             <div className="space-y-4 mb-8">
               <div>
                 <h3 className="text-green-400 font-bold mb-1">Combat System</h3>
                 <ul className="text-gray-300 space-y-1 ml-4 list-disc">
-                  <li>ATTACK/KILL &lt;monster&gt; to engage in combat</li>
-                  <li>To-hit calculation based on weapon skill, stats, level, and monster defense</li>
-                  <li>Damage from weapon Parameter1, modified by strength and armor</li>
-                  <li>Monster immunity system (edged, crushing, heat, cold, electric)</li>
-                  <li>Hostile monsters (strategy 301+) auto-attack players entering rooms</li>
-                  <li>Monsters attack back every few seconds based on Speed</li>
+                  <li>ATTACK/KILL &lt;monster&gt; &mdash; original format: [ToHit: X, Roll: Y] Hit!/Miss./Excellent Hit!</li>
+                  <li>Damage severity tiers: Puny, Grazing, Minor, Passable, Good, Masterful, Grisly, Severe, Ghastly</li>
+                  <li>Attack verbs by weapon type: swings (slash), thrusts (pierce/pole), slashes (claw)</li>
+                  <li>Body part targeting: head, body, arms, legs, back, tail</li>
+                  <li>Weapon elemental crits (VAL3): 10-50% chance heat/cold/electric bonus damage</li>
+                  <li>Racial slayer weapons (VAL3 21-32): bonus damage vs specific monster races</li>
+                  <li>Weapon poison (VAL4): delivers poison on hit</li>
+                  <li>MAGICWEAPON gating: some monsters require enchanted weapons to hit</li>
+                  <li>Monster guard behavior: guards intercept attacks on their charge</li>
+                  <li>Cry for law: attacking lawful NPCs alerts nearby guards</li>
+                  <li>Monster poison, disease, and fatigue attacks on hit</li>
+                  <li>EXTRABODY: monsters have extra HP not counted toward XP</li>
+                  <li>Weather combat modifiers: rain/snow/storms reduce attack accuracy</li>
+                  <li>Arena rooms prevent lethal damage</li>
+                  <li>Alignment shifts on monster kills</li>
+                  <li>Hostile monsters (strategy 301+) auto-attack on room entry</li>
                   <li>Monster flee AI based on strategy type and HP percentage</li>
-                  <li>FLEE to escape combat (quickness/agility based)</li>
                   <li>Combat stances: OFFENSIVE, DEFENSIVE, BERSERK (Murg), WARY, NORMAL</li>
-                  <li>Roundtime system prevents action spam</li>
-                  <li>Death sends you to Eternity, Inc. &mdash; DEPART to respawn</li>
-                  <li>Experience from kills, level-up system</li>
-                  <li>Monster special attacks (SPECUSE/SPECDMG) with TEXX text</li>
+                  <li>FLEE to escape combat, [Round: X sec] roundtime</li>
+                  <li>Death &rarr; Eternity, Inc. &rarr; DEPART to respawn</li>
+                  <li>Real XP/build-point table from original GM Manual (100 levels)</li>
                 </ul>
               </div>
               <div>
@@ -50,6 +58,22 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
                   <li>Mind over Matter: Kinetic Thrust, Pyrokinetics, Cryokinetics, Electrify, Wall of Force, Flight</li>
                   <li>Mind over Mind: Psychic Blast, Psychic Crush, Terror, Pain, Psychic Screen/Shield/Barrier/Fortress</li>
                   <li>Psi point costs, psionic skill checks, psi resistance</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">World Systems</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>SKIN dead monsters for components (weighted random drops from SkinItem definitions)</li>
+                  <li>Container traps: 13 types (needles, gas, acid, blades, explosives, glyph spells)</li>
+                  <li>Highlander BLEND in mountain/cave terrain</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Race-Specific Emotes</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Drakin: flick tongue, bare teeth, spread/fold wings, swish tail</li>
+                  <li>Aelfen: rub ears &middot; Highlander: pull beard &middot; Wolfling: bare fangs, chase tail, scent air</li>
+                  <li>23 new self-emotes: fume, squint, hum, sneeze, crack knuckles, bat eyelashes, and more</li>
                 </ul>
               </div>
             </div>
