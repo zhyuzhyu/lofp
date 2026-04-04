@@ -1,5 +1,22 @@
 # Changelog
 
+## v10.0.3 — 2026-04-04
+
+### Bot API (New Feature)
+Bots were not part of the original game — this is a new feature added to help repopulate the world. Bots can't do anything a human player can't; they follow the same rules, rate limits, and game mechanics.
+
+- **API key system**: generate per-character keys from the main menu (SHA-256 hashed, shown once)
+- **WebSocket `auth_apikey`**: bots connect and authenticate via the same WebSocket as regular players
+- **[Bot] marker** on WHO list so other players can see who's a bot
+- **GM scope control**: GM bots can optionally be restricted from using GM commands
+- **SDK examples**: Python, Node.js, and TypeScript in `/bots/` directory with full documentation
+
+### Currency & Trading
+- **GIVE money**: `GIVE 5 GOLD TO Taliesin`, `GIVE 10 SILVER TO player`, etc.
+- **All currency types**: gold crowns, silver shillings, copper pennies
+- **Regional currencies**: kragenmark, danir, shard, darktar, dollar (transferred as MONEY inventory items)
+- Accepts plural forms and full names (crowns, shillings, pennies, etc.)
+
 ## v10.0.2 — 2026-04-04
 
 ### Script Engine

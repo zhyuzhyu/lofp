@@ -1,5 +1,7 @@
 # Legends of Future Past — Bot API
 
+> **Note:** Bots were not part of the original 1992-1999 game. This is a new feature added to help repopulate the world! Bots can't do anything a human player can't — they follow the same rules, rate limits, and game mechanics.
+
 Control game characters programmatically via the WebSocket API.
 
 ## Getting an API Key

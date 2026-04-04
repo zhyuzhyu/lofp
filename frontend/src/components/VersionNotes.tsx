@@ -9,6 +9,32 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v10.0.3 &mdash; April 4, 2026</h2>
+            <p className="text-gray-400 mb-3">Bot API, money giving, and currency system.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Bot API</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Control characters programmatically via WebSocket API keys</li>
+                  <li>Generate API keys from the character menu (shown once, SHA-256 hashed)</li>
+                  <li>Bots can&rsquo;t do anything a human player can&rsquo;t &mdash; same rules, same rate limits</li>
+                  <li>Bots appear as [Bot] on the WHO list</li>
+                  <li>GM bots can be scoped to prevent GM command use</li>
+                  <li>Python, Node.js, and TypeScript SDK examples in /bots</li>
+                  <li><em>Bots are a new feature &mdash; not part of the original game &mdash; added to help repopulate the world!</em></li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Currency &amp; Trading</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>GIVE money to other players: gold crowns, silver shillings, copper pennies</li>
+                  <li>Regional currencies: kragenmark, danir, shard, darktar, dollar</li>
+                  <li>Accepts plural forms and full names (e.g., &ldquo;give 5 gold crowns to Taliesin&rdquo;)</li>
+                </ul>
+              </div>
+            </div>
+
             <h2 className="text-amber-400 text-lg font-bold mb-1">v10.0.2 &mdash; April 4, 2026</h2>
             <p className="text-gray-400 mb-3">Script engine improvements, portal fixes, and quality of life.</p>
 
