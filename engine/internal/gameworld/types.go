@@ -157,10 +157,12 @@ type CEvent struct {
 
 // ScriptBlock represents a conditional block (IFVERB...ENDIF, etc.)
 type ScriptBlock struct {
-	Type      string        `bson:"type" json:"type"`           // IFVERB, IFPREVERB, IFENTRY, IFSAY, etc.
-	Args      []string      `bson:"args" json:"args"`
-	Actions   []ScriptAction `bson:"actions" json:"actions"`
-	Children  []ScriptBlock `bson:"children,omitempty" json:"children,omitempty"` // nested IFs
+	Type         string         `bson:"type" json:"type"`           // IFVERB, IFPREVERB, IFENTRY, IFSAY, etc.
+	Args         []string       `bson:"args" json:"args"`
+	Actions      []ScriptAction `bson:"actions" json:"actions"`
+	Children     []ScriptBlock  `bson:"children,omitempty" json:"children,omitempty"` // nested IFs
+	ElseActions  []ScriptAction `bson:"elseActions,omitempty" json:"elseActions,omitempty"`   // ELSE branch actions
+	ElseChildren []ScriptBlock  `bson:"elseChildren,omitempty" json:"elseChildren,omitempty"` // ELSE branch nested IFs
 }
 
 // ScriptAction represents a command inside a conditional block.

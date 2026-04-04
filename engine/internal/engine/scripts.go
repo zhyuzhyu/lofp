@@ -171,16 +171,22 @@ func (sc *ScriptContext) execBlock(block gameworld.ScriptBlock) {
 	case "IFVAR":
 		if sc.evalIfVar(block.Args) {
 			sc.execChildren(block)
+		} else {
+			sc.execElse(block)
 		}
 
 	case "IFITEM":
 		if sc.evalIfItem(block.Args) {
 			sc.execChildren(block)
+		} else {
+			sc.execElse(block)
 		}
 
 	case "IFNOITEM":
 		if !sc.evalIfItem(block.Args) {
 			sc.execChildren(block)
+		} else {
+			sc.execElse(block)
 		}
 
 	case "IFSAY":
@@ -194,6 +200,8 @@ func (sc *ScriptContext) execBlock(block gameworld.ScriptBlock) {
 	case "IFCARRY":
 		if sc.evalIfCarry(block.Args) {
 			sc.execChildren(block)
+		} else {
+			sc.execElse(block)
 		}
 
 	case "IFLOGIN":
@@ -202,12 +210,26 @@ func (sc *ScriptContext) execBlock(block gameworld.ScriptBlock) {
 	case "IFFULLDESC":
 		if !sc.Player.BriefMode {
 			sc.execChildren(block)
+		} else {
+			sc.execElse(block)
 		}
 
 	case "IFIN":
 		if sc.evalIfIn(block.Args) {
 			sc.execChildren(block)
+		} else {
+			sc.execElse(block)
 		}
+	}
+}
+
+// execElse runs the ELSE branch of a conditional block (if it has one).
+func (sc *ScriptContext) execElse(block gameworld.ScriptBlock) {
+	for _, action := range block.ElseActions {
+		sc.execAction(action)
+	}
+	for _, child := range block.ElseChildren {
+		sc.execBlock(child)
 	}
 }
 

@@ -931,6 +931,33 @@ func (p *fileParser) parseScriptBlock(fields []string) gameworld.ScriptBlock {
 
 		if cmd == "ELSE" {
 			p.pos++
+			// Parse remaining actions/children into the ELSE branch
+			for p.pos < len(p.lines) {
+				eline := strings.TrimSpace(p.lines[p.pos])
+				if eline == "" || strings.HasPrefix(eline, ";") {
+					p.pos++
+					continue
+				}
+				efields := strings.Fields(eline)
+				ecmd := strings.ToUpper(efields[0])
+				if ecmd == "ENDIF" || ecmd == "NUMBER" || ecmd == "INUMBER" || ecmd == "MNUMBER" {
+					break
+				}
+				if ecmd == "ELSE" {
+					p.pos++
+					break // nested ELSE not supported, just stop
+				}
+				if strings.HasPrefix(ecmd, "IF") {
+					child := p.parseScriptBlock(efields)
+					block.ElseChildren = append(block.ElseChildren, child)
+					continue
+				}
+				block.ElseActions = append(block.ElseActions, gameworld.ScriptAction{
+					Command: ecmd,
+					Args:    efields[1:],
+				})
+				p.pos++
+			}
 			continue
 		}
 
