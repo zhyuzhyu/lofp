@@ -383,6 +383,9 @@ type CommandResult struct {
 	// TelepathyMsg: telepathy message to send to telepathy-enabled players.
 	TelepathyMsg    string `json:"-"`
 	TelepathySender string `json:"-"`
+	// LogEvent: optional event to log (type, detail).
+	LogEventType string `json:"-"`
+	LogEventDetail string `json:"-"`
 }
 
 // extractOriginalArgs returns the original-case text after the first word of input.
@@ -1063,6 +1066,21 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 			Messages:    []string{"Your request for assistance has been noted. A gamemaster will be with you as soon as possible."},
 			GMBroadcast: []string{fmt.Sprintf("[GM] %s is requesting assistance at %s (room %d).", player.FirstName, roomName, player.RoomNumber)},
 		}
+	case "REPORT":
+		if len(args) == 0 {
+			return &CommandResult{Messages: []string{"Report what? Usage: REPORT <message>"}}
+		}
+		reportText := strings.Join(strings.Fields(input)[1:], " ")
+		room := e.rooms[player.RoomNumber]
+		roomName := "unknown"
+		if room != nil { roomName = room.Name }
+		e.Events.Publish("report", fmt.Sprintf("[REPORT] %s (room %d %s): %s", player.FirstName, player.RoomNumber, roomName, reportText))
+		return &CommandResult{
+			Messages:       []string{"Your report has been filed. Thank you!"},
+			GMBroadcast:    []string{fmt.Sprintf("[REPORT] %s (room %d, %s): %s", player.FirstName, player.RoomNumber, roomName, reportText)},
+			LogEventType:   "report",
+			LogEventDetail: reportText,
+		}
 	case "LOCK":
 		return e.doLock(ctx, player, args)
 	case "UNLOCK":
@@ -1160,7 +1178,7 @@ var allVerbs = []string{
 	// Additional verbs
 	"ORDER", "UNLIGHT", "IGNITE", "QUAFF", "SHOUT",
 	"LOCK", "UNLOCK", "POUR", "UNEMOTE", "ACTBRIEF", "RPBRIEF",
-	"FLEE", "MODERATE", "HIT", "PSI", "PROJECT", "DEPART", "REVEAL", "UNHIDE",
+	"FLEE", "MODERATE", "HIT", "PSI", "PROJECT", "DEPART", "REVEAL", "UNHIDE", "REPORT",
 	// Self-emotes
 	"FUME", "SQUINT", "HUM", "SNIFFLE", "SLOUCH", "SNORE", "SNEEZE",
 	"STARE", "PUCKER", "CRACK", "BOUNCE", "STRIKE", "CLUTCH",
@@ -1275,8 +1293,17 @@ func (e *GameEngine) doMove(ctx context.Context, player *Player, dir string) *Co
 	e.SavePlayer(ctx, player)
 	result := e.doLook(player)
 	result.OldRoom = oldRoom
-	result.OldRoomMsg = []string{fmt.Sprintf("%s goes %s.", player.FirstName, dirName)}
-	result.RoomBroadcast = []string{fmt.Sprintf("%s arrives.", player.FirstName)}
+	// Custom exit/entry echoes (from @exit/@entry GM commands)
+	if player.ExitEcho != "" {
+		result.OldRoomMsg = []string{player.ExitEcho}
+	} else {
+		result.OldRoomMsg = []string{fmt.Sprintf("%s goes %s.", player.FirstName, dirName)}
+	}
+	if player.EntryEcho != "" {
+		result.RoomBroadcast = []string{player.EntryEcho}
+	} else {
+		result.RoomBroadcast = []string{fmt.Sprintf("%s arrives.", player.FirstName)}
+	}
 
 	// Run IFENTRY scripts for the destination room
 	e.applyEntryScripts(ctx, player, dest, result)
@@ -1638,6 +1665,17 @@ func (e *GameEngine) examinePlayer(observer *Player, target *Player) *CommandRes
 	}
 
 	msgs = append(msgs, fmt.Sprintf("%s a %s %s.", pronoun, target.RaceName(), genderName(target.Gender)))
+
+	// Custom description lines
+	if target.DescLine1 != "" {
+		msgs = append(msgs, target.DescLine1)
+	}
+	if target.DescLine2 != "" {
+		msgs = append(msgs, target.DescLine2)
+	}
+	if target.DescLine3 != "" {
+		msgs = append(msgs, target.DescLine3)
+	}
 
 	// Health description
 	healthPct := float64(target.BodyPoints) / float64(target.MaxBodyPoints) * 100

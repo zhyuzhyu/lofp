@@ -21,6 +21,7 @@ const (
 	EventLevelUp         EventType = "level_up"
 	EventGMGrant         EventType = "gm_grant"
 	EventGMRevoke        EventType = "gm_revoke"
+	EventReport          EventType = "report"            // Player REPORT command
 )
 
 type LogEntry struct {

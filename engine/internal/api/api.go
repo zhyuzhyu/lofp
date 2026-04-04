@@ -542,6 +542,11 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 			if len(result.GMBroadcast) > 0 {
 				s.broadcastToGMs(result.GMBroadcast)
 			}
+			// Log event (e.g., REPORT)
+			if result.LogEventType != "" {
+				s.gamelog.Log(gamelog.EventType(result.LogEventType), session.Player.FullName(), "",
+					result.LogEventDetail, session.Player.RoomNumber, "")
+			}
 			// Telepathy broadcast — send to all players with TelepathyActive
 			if result.TelepathyMsg != "" {
 				telepathyLines := []string{

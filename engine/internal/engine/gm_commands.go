@@ -125,12 +125,16 @@ func (e *GameEngine) processGMCommand(ctx context.Context, player *Player, verb 
 		return e.gmExclude(args, rawInput)
 	case "@SPEECH":
 		return &CommandResult{Messages: []string{"Speech pattern updated."}}
-	case "@LINE1", "@LINE2", "@LINE3":
-		return &CommandResult{Messages: []string{"Description line updated."}}
+	case "@LINE1":
+		return e.gmSetLine(ctx, player, args, rawInput, 1)
+	case "@LINE2":
+		return e.gmSetLine(ctx, player, args, rawInput, 2)
+	case "@LINE3":
+		return e.gmSetLine(ctx, player, args, rawInput, 3)
 	case "@ENTRY":
-		return &CommandResult{Messages: []string{"Entry echo set."}}
+		return e.gmSetEntryExit(ctx, player, args, rawInput, "entry")
 	case "@EXIT":
-		return &CommandResult{Messages: []string{"Exit echo set."}}
+		return e.gmSetEntryExit(ctx, player, args, rawInput, "exit")
 	case "@SUGGEST":
 		return &CommandResult{Messages: []string{"Suggestion recorded. Thank you!"}}
 	case "@MSG":
@@ -536,6 +540,73 @@ func (e *GameEngine) gmSpawn(player *Player, args []string) *CommandResult {
 		Messages:      []string{fmt.Sprintf("Spawned %s (active) in room %d.", name, player.RoomNumber)},
 		RoomBroadcast: []string{genText},
 	}
+}
+
+func (e *GameEngine) gmSetLine(ctx context.Context, player *Player, args []string, rawInput string, lineNum int) *CommandResult {
+	// @line1 <player#> <text> OR @line1 <text> (self)
+	// "-none-" removes the line, "x" resets all lines
+	if len(args) == 0 {
+		return &CommandResult{Messages: []string{fmt.Sprintf("Usage: @line%d <text> (set on yourself) or @line%d <player> <text>", lineNum, lineNum)}}
+	}
+
+	target := player
+	text := extractRawArgs(rawInput, 1)
+
+	// Check if first arg is a player name
+	if len(args) >= 2 {
+		found := e.findPlayerInRoom(player, args[0])
+		if found != nil {
+			target = found
+			text = extractRawArgs(rawInput, 2)
+		}
+	}
+
+	if strings.ToLower(text) == "-none-" || text == "" {
+		text = ""
+	}
+	if strings.ToLower(text) == "x" {
+		target.DescLine1 = ""
+		target.DescLine2 = ""
+		target.DescLine3 = ""
+		e.SavePlayer(ctx, target)
+		return &CommandResult{Messages: []string{fmt.Sprintf("All description lines cleared for %s.", target.FirstName)}}
+	}
+
+	switch lineNum {
+	case 1:
+		target.DescLine1 = text
+	case 2:
+		target.DescLine2 = text
+	case 3:
+		target.DescLine3 = text
+	}
+	e.SavePlayer(ctx, target)
+
+	if text == "" {
+		return &CommandResult{Messages: []string{fmt.Sprintf("Description line %d cleared for %s.", lineNum, target.FirstName)}}
+	}
+	return &CommandResult{Messages: []string{fmt.Sprintf("Description line %d set for %s: %s", lineNum, target.FirstName, text)}}
+}
+
+func (e *GameEngine) gmSetEntryExit(ctx context.Context, player *Player, args []string, rawInput string, which string) *CommandResult {
+	text := extractRawArgs(rawInput, 1)
+	if text == "" {
+		if which == "entry" {
+			player.EntryEcho = ""
+		} else {
+			player.ExitEcho = ""
+		}
+		e.SavePlayer(ctx, player)
+		return &CommandResult{Messages: []string{fmt.Sprintf("%s echo cleared.", strings.Title(which))}}
+	}
+
+	if which == "entry" {
+		player.EntryEcho = text
+	} else {
+		player.ExitEcho = text
+	}
+	e.SavePlayer(ctx, player)
+	return &CommandResult{Messages: []string{fmt.Sprintf("%s echo set: %s", strings.Title(which), text)}}
 }
 
 func (e *GameEngine) gmLsk() *CommandResult {

@@ -154,6 +154,13 @@ type Player struct {
 	Flag3 int `bson:"-" json:"-"`
 	Flag4 int `bson:"-" json:"-"`
 
+	// Appearance / Description
+	DescLine1  string `bson:"descLine1,omitempty" json:"descLine1,omitempty"` // custom description lines (visible on EXAMINE)
+	DescLine2  string `bson:"descLine2,omitempty" json:"descLine2,omitempty"`
+	DescLine3  string `bson:"descLine3,omitempty" json:"descLine3,omitempty"`
+	EntryEcho  string `bson:"entryEcho,omitempty" json:"entryEcho,omitempty"` // custom room entry text (replaces "X arrives.")
+	ExitEcho   string `bson:"exitEcho,omitempty" json:"exitEcho,omitempty"`   // custom room exit text (replaces "X goes north.")
+
 	// Game state
 	BriefMode    bool   `bson:"briefMode" json:"briefMode"`
 	PromptMode   bool   `bson:"promptMode" json:"promptMode"`

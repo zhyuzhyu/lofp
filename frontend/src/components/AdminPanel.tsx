@@ -254,6 +254,7 @@ const EventLabels: Record<string, string> = {
   level_up: 'Level Up',
   gm_grant: 'GM Granted',
   gm_revoke: 'GM Revoked',
+  report: 'Player Report',
 }
 
 const EventColors: Record<string, string> = {
@@ -264,6 +265,7 @@ const EventColors: Record<string, string> = {
   character_create: 'text-blue-400',
   level_up: 'text-yellow-400',
   gm_grant: 'text-amber-400',
+  report: 'text-red-400',
   gm_revoke: 'text-red-400',
 }
 
