@@ -1,5 +1,31 @@
 # Changelog
 
+## v10.0.1 — 2026-04-04
+
+### Character Management
+- **Soft-delete characters** from main menu with confirmation modal
+- **Unique first names** enforced on character creation
+- **Admin character recovery**: browse deleted characters, recover with optional rename if name conflicts
+- **Name validation split**: monster/game names blocked as exact match only; slurs blocked as substring
+- Removed over-aggressive substring matching (e.g., "Pendragon" no longer blocked for containing "dragon")
+
+### Script Engine Variables
+- **WARRANT**: player warrant level for law/crime system
+- **GFLAG1-4**: global flags accessible in scripts
+- **NUMPLRS**: total online player count
+- **ARENADEATH**: whether player died in arena
+- **SITTING, LAYING, STANDING, KNEELING**: position state variables
+- **WIELDED, WEALTH, REGION**: equipment and location variables
+
+### Fixes
+- **Fixed Taliesin login**: reserved-word validation was running on login, not just creation — "Pendragon" was blocked because it contains "dragon"
+- **Name validation moved to creation only** — existing characters log in without name checks
+- **Version notes deeplink**: /version-notes URL works as direct link
+
+### Infrastructure
+- **Engine test harness**: first unit test (TestLoadPlayerTaliesin) verifying MongoDB player lookup
+- **Warrant field** added to Player struct for future law system
+
 ## v10.0.0 — 2026-04-04
 
 ### Crafting System

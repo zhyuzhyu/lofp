@@ -9,6 +9,38 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v10.0.1 &mdash; April 4, 2026</h2>
+            <p className="text-gray-400 mb-3">Character management, script variables, admin tools, and bug fixes.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Character Management</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Delete characters from main menu (soft-delete with confirmation modal)</li>
+                  <li>Unique first names enforced on character creation</li>
+                  <li>Admin: browse deleted characters, recover with optional rename</li>
+                  <li>Name validation split: exact match for monsters, substring for slurs only</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Script Engine</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>New variables: WARRANT, GFLAG1-4, NUMPLRS, ARENADEATH</li>
+                  <li>Position variables: SITTING, LAYING, STANDING, KNEELING</li>
+                  <li>WIELDED, WEALTH, REGION variables added</li>
+                  <li>Warrant field on player for law/crime system</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Fixes</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Fixed login blocked by reserved-word check (&ldquo;Pendragon&rdquo; contains &ldquo;dragon&rdquo;)</li>
+                  <li>Name validation moved to character creation only, not login</li>
+                  <li>Version notes accessible via /version-notes deeplink</li>
+                </ul>
+              </div>
+            </div>
+
             <h2 className="text-amber-400 text-lg font-bold mb-1">v10.0.0 &mdash; April 4, 2026</h2>
             <p className="text-gray-400 mb-3">Major milestone: complete combat, magic, psionics, crafting, alchemy, and full skill system.</p>
 
