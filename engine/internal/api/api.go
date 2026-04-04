@@ -397,14 +397,15 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 			var create CreateCharMsg
 			json.Unmarshal(msg.Data, &create)
 
-			if err := engine.ValidateCharacterInput(create.FirstName, create.LastName, create.Race, create.Gender); err != nil {
-				s.sendWSMessage(session, "error", map[string]interface{}{"message": err.Error()})
-				continue
-			}
-
 			ctx := context.Background()
+			// Try to load existing character first (no validation needed for existing chars)
 			player, err := s.engine.LoadPlayer(ctx, create.FirstName, create.LastName)
 			if err != nil || player == nil {
+				// New character — validate name
+				if err := engine.ValidateCharacterInput(create.FirstName, create.LastName, create.Race, create.Gender); err != nil {
+					s.sendWSMessage(session, "error", map[string]interface{}{"message": err.Error()})
+					continue
+				}
 				player = s.engine.CreateNewPlayer(ctx, create.FirstName, create.LastName, create.Race, create.Gender, accountID)
 				s.gamelog.Log(gamelog.EventCharacterCreate, player.FullName(), accountID,
 					fmt.Sprintf("Race: %s, Gender: %d", player.RaceName(), player.Gender),

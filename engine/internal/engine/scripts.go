@@ -895,6 +895,23 @@ func (sc *ScriptContext) getVar(name string) int {
 		return 0
 	case "PLAYERNUM":
 		return 0 // TODO: unique player number
+	case "WARRANT":
+		return sc.Player.Warrant
+	case "GFLAG1":
+		return sc.Player.IntNums[901]
+	case "GFLAG2":
+		return sc.Player.IntNums[902]
+	case "GFLAG3":
+		return sc.Player.IntNums[903]
+	case "GFLAG4":
+		return sc.Player.IntNums[904]
+	case "NUMPLRS":
+		if sc.Engine.sessions != nil {
+			return len(sc.Engine.sessions.OnlinePlayers())
+		}
+		return 0
+	case "ARENADEATH":
+		return sc.Player.IntNums[905]
 	}
 	// Check named global variables (DANWATER, TECHSWITCH, etc.)
 	if sc.Engine.namedVarNames[name] {

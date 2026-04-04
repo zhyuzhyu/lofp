@@ -138,6 +138,7 @@ type Player struct {
 	Organization int `bson:"organization,omitempty" json:"organization,omitempty"` // ORG
 	OrgRank      int `bson:"orgRank,omitempty" json:"orgRank,omitempty"`           // ORGRANK
 	Alignment    int `bson:"alignment,omitempty" json:"alignment,omitempty"`       // ALIGN
+	Warrant      int `bson:"warrant,omitempty" json:"warrant,omitempty"`           // warrant level 0-9
 	BuildPoints  int `bson:"buildPoints,omitempty" json:"buildPoints,omitempty"`
 
 	// Skills

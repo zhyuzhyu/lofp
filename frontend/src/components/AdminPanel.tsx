@@ -298,6 +298,7 @@ export default function AdminPanel() {
   const [selectedPlayer, setSelectedPlayer] = useState<PlayerDetail | null>(null)
   const [reassignAccountId, setReassignAccountId] = useState('')
   const [reassignError, setReassignError] = useState('')
+  const [showDeleted, setShowDeleted] = useState(false)
   // Items
   const [items, setItems] = useState<ItemSummary[]>([])
   const [itemSearch, setItemSearch] = useState('')
@@ -333,7 +334,8 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (tab === 'players') {
-      fetch('/api/admin/characters', { headers: authHeaders() })
+      const url = showDeleted ? '/api/admin/characters/deleted' : '/api/admin/characters'
+      fetch(url, { headers: authHeaders() })
         .then(r => r.json())
         .then((data: PlayerSummary[]) => setPlayers(data || []))
       // Also load accounts so the reassign dropdown is populated
@@ -357,7 +359,7 @@ export default function AdminPanel() {
     if (tab === 'logs') {
       fetchLogs()
     }
-  }, [tab])
+  }, [tab, showDeleted])
 
   // Auto-scroll events
   useEffect(() => {
@@ -519,6 +521,21 @@ export default function AdminPanel() {
           p.firstName === firstName ? { ...p, accountId: updated.accountId } : p
         ))
         setReassignAccountId('')
+      })
+  }
+
+  const recoverCharacter = (firstName: string) => {
+    const newName = prompt(`Recover "${firstName}"? Enter a new first name (or leave blank to keep current):`)
+    if (newName === null) return // cancelled
+    fetch(`/api/admin/characters/${firstName}/recover`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ newFirstName: newName || '' }),
+    })
+      .then(async r => {
+        if (!r.ok) { alert((await r.json()).error || 'Recovery failed'); return }
+        alert('Character recovered!')
+        setShowDeleted(false) // switch back to active view
       })
   }
 
@@ -986,6 +1003,10 @@ export default function AdminPanel() {
                   placeholder="Search characters..."
                   className="w-full bg-[#0a0a0a] border border-[#444] rounded px-2 py-1 text-gray-200 focus:border-amber-500 focus:outline-none text-xs"
                 />
+                <label className="flex items-center gap-1 mt-1 text-gray-500 text-xs cursor-pointer">
+                  <input type="checkbox" checked={showDeleted} onChange={e => setShowDeleted(e.target.checked)} className="accent-amber-500" />
+                  Show deleted characters
+                </label>
               </div>
               <div className="flex-1 overflow-y-auto">
                 {filteredPlayers.map(p => (
@@ -1051,6 +1072,15 @@ export default function AdminPanel() {
                       {selectedPlayer.isGM ? 'Revoke GM' : 'Grant GM'}
                     </button>
                   </div>
+
+                  {showDeleted && (
+                    <button
+                      onClick={() => recoverCharacter(selectedPlayer.firstName)}
+                      className="px-3 py-1.5 rounded text-xs font-bold bg-green-800 text-white hover:bg-green-700 mb-3"
+                    >
+                      Recover Character
+                    </button>
+                  )}
 
                   <div className="bg-[#111] border border-[#333] rounded p-4">
                     <h3 className="text-gray-400 text-xs uppercase mb-2">Reassign Owner</h3>
