@@ -59,11 +59,11 @@ func (e *GameEngine) generateTreasure(roomNum int, treasureLevel int) []string {
 	}
 
 	if rand.Intn(100) < dropChance {
-		// Determine drop type based on treasure level
+		// Determine drop type — all tiers available from treasure level 1
 		roll := rand.Intn(100)
 		switch {
-		case roll < 25 && treasureLevel >= 5:
-			// Weapon drop — find a level-appropriate weapon from the item database
+		case roll < 20:
+			// Weapon drop
 			if item := e.randomWeaponDrop(treasureLevel); item != nil {
 				ref := len(room.Items)
 				item.Ref = ref
@@ -75,28 +75,33 @@ func (e *GameEngine) generateTreasure(roomNum int, treasureLevel int) []string {
 				}
 			}
 
-		case roll < 40 && treasureLevel >= 10:
-			// Scroll drop — spell scroll with learnable spell
+		case roll < 40:
+			// Scroll drop — spell scroll with learnable spell (available at all levels)
 			if item := e.randomScrollDrop(treasureLevel); item != nil {
 				ref := len(room.Items)
 				item.Ref = ref
 				room.Items = append(room.Items, *item)
 				def := e.items[item.Archetype]
 				if def != nil {
-					msgs = append(msgs, "A scroll lies among the remains.")
+					spell := FindSpellByID(item.Val3)
+					if spell != nil {
+						msgs = append(msgs, fmt.Sprintf("A scroll of %s lies among the remains.", spell.Name))
+					} else {
+						msgs = append(msgs, "A scroll lies among the remains.")
+					}
 				}
 			}
 
-		case roll < 55 && treasureLevel >= 15:
-			// Locked chest — container with random contents
+		case roll < 55:
+			// Locked container — for rogues to practice lockpicking (available at all levels)
 			if item := e.randomChestDrop(treasureLevel); item != nil {
 				ref := len(room.Items)
 				item.Ref = ref
 				room.Items = append(room.Items, *item)
-				msgs = append(msgs, "A small chest lies among the remains.")
+				msgs = append(msgs, "A small locked chest lies among the remains.")
 			}
 
-		case roll < 70 && treasureLevel >= 3:
+		case roll < 75:
 			// Armor drop
 			if item := e.randomArmorDrop(treasureLevel); item != nil {
 				ref := len(room.Items)
@@ -249,28 +254,40 @@ func (e *GameEngine) randomScrollDrop(treasureLevel int) *gameworld.RoomItem {
 
 // randomChestDrop creates a locked chest (possibly trapped) with coin contents.
 func (e *GameEngine) randomChestDrop(treasureLevel int) *gameworld.RoomItem {
-	// Find a chest item archetype
+	// Find a chest/strongbox/coffer item archetype
 	chestArch := 0
 	for num, def := range e.items {
 		noun := e.nouns[def.NameID]
-		if noun == "chest" && def.Weight < 1000 && def.Container != "" {
+		if (noun == "chest" || noun == "strongbox" || noun == "coffer" || noun == "lockbox" || noun == "casket") && def.Weight < 1000 {
 			chestArch = num
 			break
 		}
 	}
+	// Also try any LOCKABLE container
 	if chestArch == 0 {
-		// Create a generic locked container
-		return nil // no suitable chest item found in database
+		for num, def := range e.items {
+			if def.Container != "" && containsFlag(def.Flags, "LOCKABLE") && def.Weight < 1000 {
+				chestArch = num
+				break
+			}
+		}
+	}
+	if chestArch == 0 {
+		return nil
 	}
 
+	// Lock difficulty scales with treasure level but starts easy for rogues
+	lockDiff := treasureLevel/2 + rand.Intn(10) + 5
 	item := &gameworld.RoomItem{
 		Archetype: chestArch,
 		State:     "LOCKED",
-		Val1:      treasureLevel + rand.Intn(20), // lock difficulty
+		Val1:      lockDiff,
 	}
 
-	// Chance for trap (higher treasure = more dangerous traps)
-	if rand.Intn(100) < 40 {
+	// Chance for trap (scales with treasure level: 10% at level 1, up to 50% at high levels)
+	trapChance := 10 + treasureLevel/2
+	if trapChance > 50 { trapChance = 50 }
+	if rand.Intn(100) < trapChance {
 		trapTypes := []int{1, 2, 4, 5} // needle, gas, blades, moderate needle
 		if treasureLevel >= 30 {
 			trapTypes = append(trapTypes, 7, 8, 9, 12) // major needle, explosive, acid, nerve gas
