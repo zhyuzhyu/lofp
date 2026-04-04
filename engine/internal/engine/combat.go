@@ -675,7 +675,8 @@ func (e *GameEngine) doAttackMonster(ctx context.Context, player *Player, target
 
 	// Resolve to-hit
 	attackRating := playerAttackRating(player, weaponDef) + wMod - fatPenalty
-	toHit := calcToHit(attackRating, def.Defense)
+	monDefense := def.Defense + inst.DefenseBonus
+	toHit := calcToHit(attackRating, monDefense)
 	roll := rand.Intn(100) + 1
 
 	selfVerb, thirdVerb, dmgNoun := attackVerb(weaponDef)

@@ -12,11 +12,12 @@ import (
 
 // MonsterInstance represents a spawned monster in the world.
 type MonsterInstance struct {
-	ID         int       `json:"id"`
-	DefNumber  int       `json:"defNumber"`
-	RoomNumber int       `json:"roomNumber"`
-	Alive      bool      `json:"alive"`
-	Sedated    bool      `json:"sedated"`
+	ID           int       `json:"id"`
+	DefNumber    int       `json:"defNumber"`
+	RoomNumber   int       `json:"roomNumber"`
+	Alive        bool      `json:"alive"`
+	Sedated      bool      `json:"sedated"`
+	DefenseBonus int       `json:"-"` // from active psi defenses
 	CurrentHP  int       `json:"currentHP"`
 	Target     string    `json:"-"`
 	Searched   bool      `json:"-"` // already searched for loot
@@ -42,6 +43,29 @@ func newMonsterManager() *monsterManager {
 // SpawnInitialMonsters is now a no-op. Monsters spawn on demand when players are nearby.
 func (mm *monsterManager) SpawnInitialMonsters(monsterLists []gameworld.MonsterList, monsters map[int]*gameworld.MonsterDef) int {
 	return 0 // demand-based spawning handles this now
+}
+
+// monsterPsiDefenseBonus calculates defense bonus from a monster's psi disciplines.
+// Defensive disciplines are considered always-active on monsters.
+func monsterPsiDefenseBonus(disciplines []int) int {
+	bonus := 0
+	for _, d := range disciplines {
+		switch d {
+		case 9: // Wall of Force +25
+			bonus += 25
+		case 13: // Force Field +75
+			bonus += 75
+		case 54: // Psychic Screen +15
+			bonus += 15
+		case 57: // Psychic Shield +25
+			bonus += 25
+		case 58: // Psychic Barrier +35
+			bonus += 35
+		case 63: // Psychic Fortress +50
+			bonus += 50
+		}
+	}
+	return bonus
 }
 
 // spawnForRoom checks MLIST entries for a room and spawns monsters if needed.
@@ -89,11 +113,12 @@ func (e *GameEngine) spawnForRoom(roomNum int) {
 				hp += rand.Intn(def.ExtraBody/2+1) + def.ExtraBody/2
 			}
 			inst := MonsterInstance{
-				ID:         e.monsterMgr.nextID,
-				DefNumber:  ml.MonsterID,
-				RoomNumber: roomNum,
-				Alive:      true,
-				CurrentHP:  hp,
+				ID:           e.monsterMgr.nextID,
+				DefNumber:    ml.MonsterID,
+				RoomNumber:   roomNum,
+				Alive:        true,
+				CurrentHP:    hp,
+				DefenseBonus: monsterPsiDefenseBonus(def.Disciplines),
 			}
 			idx := len(e.monsterMgr.instances)
 			e.monsterMgr.instances = append(e.monsterMgr.instances, inst)
