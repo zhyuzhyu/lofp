@@ -18,6 +18,26 @@ import (
 
 var validNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z'-]{0,19}$`)
 
+// reservedNames contains names that cannot be used for characters.
+var reservedNames = map[string]bool{
+	// Monster/creature names
+	"skeleton": true, "zombie": true, "ghoul": true, "vampire": true, "lich": true,
+	"goblin": true, "ogre": true, "troll": true, "orc": true, "dragon": true,
+	"demon": true, "devil": true, "golem": true, "elemental": true, "gargoyle": true,
+	"spider": true, "rat": true, "wolf": true, "bear": true, "snake": true,
+	"guard": true, "sentry": true, "bandit": true, "thief": true, "assassin": true,
+	"mummy": true, "wraith": true, "spectre": true, "ghost": true, "wight": true,
+	"banshee": true, "ursine": true, "giant": true, "drake": true, "wyrm": true,
+	// Game terms
+	"admin": true, "moderator": true, "gamemaster": true, "system": true, "server": true,
+	"god": true, "goddess": true, "eternity": true, "legends": true,
+	// Profanity/offensive
+	"fuck": true, "shit": true, "damn": true, "ass": true, "bitch": true,
+	"dick": true, "cock": true, "pussy": true, "cunt": true, "bastard": true,
+	"whore": true, "slut": true, "nigger": true, "nigga": true, "faggot": true,
+	"retard": true, "nazi": true, "hitler": true, "rape": true, "piss": true,
+}
+
 // ValidateCharacterInput checks character creation parameters.
 func ValidateCharacterInput(firstName, lastName string, race, gender int) error {
 	if !validNamePattern.MatchString(firstName) {
@@ -25,6 +45,21 @@ func ValidateCharacterInput(firstName, lastName string, race, gender int) error 
 	}
 	if !validNamePattern.MatchString(lastName) {
 		return fmt.Errorf("last name must be 1-20 letters (may include ' and -)")
+	}
+	// Check reserved names
+	fnLower := strings.ToLower(firstName)
+	lnLower := strings.ToLower(lastName)
+	if reservedNames[fnLower] {
+		return fmt.Errorf("that first name is reserved. Please choose another")
+	}
+	if reservedNames[lnLower] {
+		return fmt.Errorf("that last name is reserved. Please choose another")
+	}
+	// Also check if any reserved word is a substring
+	for word := range reservedNames {
+		if len(word) >= 4 && (strings.Contains(fnLower, word) || strings.Contains(lnLower, word)) {
+			return fmt.Errorf("that name contains a reserved word. Please choose another")
+		}
 	}
 	if race < 1 || race > 8 {
 		return fmt.Errorf("invalid race")
@@ -56,6 +91,9 @@ type RoomChangeCallback func(change RoomChange)
 // RoomBroadcastFunc sends messages to all players in a room (used by background tasks).
 type RoomBroadcastFunc func(roomNumber int, messages []string)
 
+// PlayerMessageFunc sends messages to a specific player by name (used by background tasks).
+type PlayerMessageFunc func(playerName string, messages []string)
+
 // GameEngine holds the loaded game world and processes commands.
 type GameEngine struct {
 	db              *mongo.Database
@@ -69,6 +107,7 @@ type GameEngine struct {
 	sessions        SessionProvider
 	onRoomChange    RoomChangeCallback
 	roomBroadcast   RoomBroadcastFunc
+	sendToPlayer    PlayerMessageFunc
 	monsterMgr      *monsterManager
 	RegionWeather   map[int]int // region -> weather state
 	monsterLists    []gameworld.MonsterList
@@ -92,6 +131,11 @@ func (e *GameEngine) SetRoomChangeCallback(cb RoomChangeCallback) {
 // SetRoomBroadcast sets the function used by background tasks to send messages to rooms.
 func (e *GameEngine) SetRoomBroadcast(fn RoomBroadcastFunc) {
 	e.roomBroadcast = fn
+}
+
+// SetSendToPlayer sets the function for sending targeted messages from background tasks.
+func (e *GameEngine) SetSendToPlayer(fn PlayerMessageFunc) {
+	e.sendToPlayer = fn
 }
 
 // notifyRoomChange fires the callback if set.
@@ -683,10 +727,8 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 			return e.doRoomRecall(player)
 		}
 		return e.doItemInteraction(ctx, player, verb, args)
-	case "CAST":
-		return e.doCast(player, args)
 	case "CONCENTRATE":
-		return &CommandResult{Messages: []string{"You concentrate deeply... [Psionics coming soon.]"}}
+		return &CommandResult{Messages: []string{"You concentrate deeply."}}
 	case "BUY", "ORDER":
 		return e.doBuy(ctx, player, args)
 	case "SELL":
@@ -775,43 +817,71 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"You close your mind to telepathic communication."}, PlayerState: player}
 	case "DEPART":
-		if !player.Dead {
-			return &CommandResult{Messages: []string{"You aren't dead."}}
-		}
-		return &CommandResult{Messages: []string{"Eternity, Inc. has retrieved your body. [Death system coming soon.]"}}
+		return e.doDepart(player)
 	case "CANT":
 		return e.doCant(player, args)
-	// === COMBAT (TODO: full implementation) ===
-	case "ATTACK", "KILL", "SLAY", "SMITE":
-		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: target resolution, to-hit calc, damage, round time
+	// === COMBAT ===
+	case "ATTACK", "KILL", "SLAY", "SMITE", "HIT":
+		if len(args) == 0 {
+			return &CommandResult{Messages: []string{"Attack what?"}}
+		}
+		return e.doAttackMonster(player, strings.Join(args, " "))
+	case "FLEE":
+		return e.doFlee(player)
 	case "ADVANCE":
-		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: move to melee range
+		return &CommandResult{Messages: []string{"You advance."}, RoomBroadcast: []string{fmt.Sprintf("%s advances.", player.FirstName)}}
 	case "RETREAT":
-		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: back off from melee
+		return e.doFlee(player) // retreat is same as flee for now
 	case "GUARD":
-		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: protect another player
+		return &CommandResult{Messages: []string{"[Guard coming soon.]"}}
 	case "BACKSTAB":
-		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: requires hidden + puncture weapon
+		if !player.Hidden {
+			return &CommandResult{Messages: []string{"You must be hidden to backstab!"}}
+		}
+		if len(args) == 0 {
+			return &CommandResult{Messages: []string{"Backstab what?"}}
+		}
+		// Backstab is just an attack with bonus when hidden
+		player.Hidden = false
+		return e.doAttackMonster(player, strings.Join(args, " "))
 	case "BITE":
-		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: racial melee (drakin, wolf, murg)
+		if player.Race != RaceDrakin && player.Race != RaceWolfling && player.Race != RaceMurg {
+			return &CommandResult{Messages: []string{"Your race cannot bite effectively in combat."}}
+		}
+		if len(args) == 0 {
+			return &CommandResult{Messages: []string{"Bite what?"}}
+		}
+		return e.doAttackMonster(player, strings.Join(args, " "))
 	case "AVOID":
-		return &CommandResult{Messages: []string{"[Combat system coming soon.]"}} // TODO: avoid a specific target
+		return &CommandResult{Messages: []string{"[Avoid coming soon.]"}}
 	case "BERSERK", "FRENZY":
-		return &CommandResult{Messages: []string{"[Combat stances coming soon.]"}} // TODO: offensive stance, murg frenzy
-	case "DEFENSIVE", "OFFENSIVE", "WARY", "NORMAL":
-		return &CommandResult{Messages: []string{"[Combat stances coming soon.]"}} // TODO: stance switching
-	case "INVOKE", "PREPARE":
-		return &CommandResult{Messages: []string{"[Spell preparation coming soon.]"}} // TODO: prepare spell, set PreparedSpell, round time
+		return e.doStance(player, StanceBerserk)
+	case "DEFENSIVE":
+		return e.doStance(player, StanceDefensive)
+	case "OFFENSIVE":
+		return e.doStance(player, StanceOffensive)
+	case "WARY":
+		return e.doStance(player, StanceWary)
+	case "MODERATE", "NORMAL":
+		return e.doStance(player, StanceNormal)
+	case "PREPARE", "INVOKE":
+		return e.doPrepareSpell(player, args)
+	case "CAST":
+		return e.doCastSpell(ctx, player, args)
+	case "PSI":
+		return e.doPreparePsi(player, args)
+	case "PROJECT":
+		return e.doProjectPsi(ctx, player, args)
 	case "CHANT":
-		return &CommandResult{Messages: []string{"[Scroll casting coming soon.]"}} // TODO: cast from scroll
+		return &CommandResult{Messages: []string{"[Scroll casting coming soon.]"}}
 	case "COMMAND":
-		return &CommandResult{Messages: []string{"[Summoned creature commands coming soon.]"}} // TODO: control conjured/dominated creatures
+		return &CommandResult{Messages: []string{"[Summoned creature commands coming soon.]"}}
 	case "MASTER":
-		return &CommandResult{Messages: []string{"[Spell mastery coming soon.]"}} // TODO: improve a known spell
+		return &CommandResult{Messages: []string{"[Spell mastery coming soon.]"}}
 	case "NOCK", "LOAD":
-		return &CommandResult{Messages: []string{"[Ranged combat coming soon.]"}} // TODO: load ammo into ranged weapon
+		return &CommandResult{Messages: []string{"[Ranged combat coming soon.]"}}
 	case "SPECIALIZE":
-		return &CommandResult{Messages: []string{"[Weapon specialization coming soon.]"}} // TODO: improve crit chance with specific weapon
+		return &CommandResult{Messages: []string{"[Weapon specialization coming soon.]"}}
 	// === SKILL-BASED (TODO: implement) ===
 	case "DISARM":
 		return &CommandResult{Messages: []string{"[Trap disarming coming soon.]"}} // TODO: detect/disarm traps, requires Trap & Poison skill
@@ -983,6 +1053,7 @@ var allVerbs = []string{
 	// Additional verbs
 	"ORDER", "UNLIGHT", "IGNITE", "QUAFF", "SHOUT",
 	"LOCK", "UNLOCK", "POUR", "UNEMOTE", "ACTBRIEF", "RPBRIEF",
+	"FLEE", "MODERATE", "HIT", "PSI", "PROJECT", "DEPART",
 }
 
 // verbAliases maps short exact aliases that should bypass prefix matching.
@@ -1081,6 +1152,7 @@ func (e *GameEngine) doMove(ctx context.Context, player *Player, dir string) *Co
 
 	player.RoomNumber = destNum
 	player.Submitting = false // moving clears submit state
+	e.disengageCombat(player)  // moving clears combat
 	e.SavePlayer(ctx, player)
 	result := e.doLook(player)
 	result.OldRoom = oldRoom
@@ -1117,6 +1189,9 @@ func (e *GameEngine) applyEntryScripts(ctx context.Context, player *Player, room
 		result.GMBroadcast = append(result.GMBroadcast, sc.GMMsgs...)
 	}
 	e.SavePlayer(ctx, player)
+
+	// Check if hostile monsters should aggro on the player entering the room
+	go e.monsterCheckAggro(player, room.Number)
 }
 
 func (e *GameEngine) doLook(player *Player) *CommandResult {

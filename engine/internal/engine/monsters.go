@@ -12,12 +12,13 @@ import (
 
 // MonsterInstance represents a spawned monster in the world.
 type MonsterInstance struct {
-	ID         int  `json:"id"`
-	DefNumber  int  `json:"defNumber"`
-	RoomNumber int  `json:"roomNumber"`
-	Alive      bool `json:"alive"`
-	Sedated    bool `json:"sedated"` // sedated monsters don't act
-	CurrentHP  int  `json:"currentHP"`
+	ID         int    `json:"id"`
+	DefNumber  int    `json:"defNumber"`
+	RoomNumber int    `json:"roomNumber"`
+	Alive      bool   `json:"alive"`
+	Sedated    bool   `json:"sedated"` // sedated monsters don't act
+	CurrentHP  int    `json:"currentHP"`
+	Target     string `json:"-"` // player first name being attacked (empty = not in combat)
 }
 
 // monsterManager handles monster spawning and tracking.
@@ -127,6 +128,21 @@ func (mm *monsterManager) MonstersInRoom(roomNum int) []MonsterInstance {
 	return result
 }
 
+// AllMonstersInRoom returns all monster instances in a room (alive and dead).
+func (mm *monsterManager) AllMonstersInRoom(roomNum int) []MonsterInstance {
+	mm.mu.RLock()
+	defer mm.mu.RUnlock()
+
+	indices := mm.monstersByRoom[roomNum]
+	var result []MonsterInstance
+	for _, idx := range indices {
+		if idx < len(mm.instances) {
+			result = append(result, mm.instances[idx])
+		}
+	}
+	return result
+}
+
 // moveMonster moves a monster instance to a new room. Must be called under lock.
 func (mm *monsterManager) moveMonster(idx int, newRoom int) {
 	oldRoom := mm.instances[idx].RoomNumber
@@ -164,7 +180,7 @@ func (e *GameEngine) MonsterLookLines(roomNum int) []string {
 	if e.monsterMgr == nil {
 		return nil
 	}
-	monsters := e.monsterMgr.MonstersInRoom(roomNum)
+	monsters := e.monsterMgr.AllMonstersInRoom(roomNum)
 	if len(monsters) == 0 {
 		return nil
 	}
@@ -175,15 +191,12 @@ func (e *GameEngine) MonsterLookLines(roomNum int) []string {
 			continue
 		}
 		name := FormatMonsterName(def, e.monAdjs)
-		article := "a"
-		if len(name) > 0 && strings.ContainsRune("aeiouAEIOU", rune(name[0])) {
-			article = "an"
+		deadSuffix := ""
+		if !inst.Alive {
+			deadSuffix = " (dead)"
 		}
-		if def.Unique {
-			lines = append(lines, fmt.Sprintf("You also see %s.", name))
-		} else {
-			lines = append(lines, fmt.Sprintf("You also see %s %s.", article, name))
-		}
+		article := articleFor(name, def.Unique)
+		lines = append(lines, fmt.Sprintf("You also see %s%s%s.", article, name, deadSuffix))
 	}
 	return lines
 }
@@ -237,7 +250,31 @@ func (e *GameEngine) monsterTick(tick int) {
 			continue
 		}
 
+		// If monster is in combat, process combat instead of wandering/texting
+		if inst.Target != "" {
+			e.monsterCombatTick(inst, def)
+			continue
+		}
+
 		name := FormatMonsterName(def, e.monAdjs)
+
+		// Hostile monsters without a target — look for players in room
+		if def.Strategy >= 301 && inst.Target == "" {
+			if e.sessions != nil {
+				for _, p := range e.sessions.OnlinePlayers() {
+					if p.RoomNumber == inst.RoomNumber && !p.Dead && !p.Hidden && !p.GMInvis {
+						inst.Target = p.FirstName
+						if e.sendToPlayer != nil {
+							e.sendToPlayer(p.FirstName, []string{fmt.Sprintf("A %s snarls and attacks you!", name)})
+						}
+						break
+					}
+				}
+			}
+			if inst.Target != "" {
+				continue // start combat next tick
+			}
+		}
 
 		// Random text (TEX1-4): ~15% chance per action tick
 		if rand.Intn(100) < 15 {
@@ -253,9 +290,8 @@ func (e *GameEngine) monsterTick(tick int) {
 			}
 		}
 
-		// Wandering: ~10% chance per action tick for non-hostile monsters (strategy < 301)
-		// Hostile monsters (strategy >= 301) don't wander unless in combat (not implemented yet)
-		if def.Strategy < 301 && rand.Intn(100) < 10 {
+		// Wandering: ~10% chance per action tick for non-hostile, non-combat monsters
+		if def.Strategy < 301 && inst.Target == "" && rand.Intn(100) < 10 {
 			room := e.rooms[inst.RoomNumber]
 			if room == nil {
 				continue

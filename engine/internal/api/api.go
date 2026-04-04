@@ -88,6 +88,11 @@ func NewServer(ge *engine.GameEngine, parsed *gameworld.ParsedData, authSvc *aut
 		s.broadcastToRoom(roomNumber, "", messages)
 	})
 
+	// Set up player-targeted messages for background tasks (combat, etc.)
+	ge.SetSendToPlayer(func(playerName string, messages []string) {
+		s.sendToPlayer(playerName, messages)
+	})
+
 	return s
 }
 
@@ -1086,6 +1091,16 @@ func (s *Server) handleCreateCharacter(w http.ResponseWriter, r *http.Request) {
 	var req CreateCharMsg
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "invalid request", 400)
+		return
+	}
+	// Trim whitespace from names
+	req.FirstName = strings.TrimSpace(req.FirstName)
+	req.LastName = strings.TrimSpace(req.LastName)
+	// Validate
+	if err := engine.ValidateCharacterInput(req.FirstName, req.LastName, req.Race, req.Gender); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 	accountID := s.getAccountID(r)

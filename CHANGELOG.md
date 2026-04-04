@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.97 — 2026-04-04
+
+### Combat System
+- **ATTACK/KILL <monster>** — engage in melee combat with to-hit and damage resolution
+- **To-hit formula**: weapon skill + stats + level vs monster defense, clamped 5-95%
+- **Damage**: weapon Parameter1 roll + STR/AGI bonus, reduced by monster armor and immunities
+- **Monster attacks back** every tick based on Speed, with attack/defense resolution
+- **Hostile monsters** (strategy >= 301) auto-attack players entering their room
+- **Monster flee AI**: strategy-based (non-hostile flee at 60% HP, animals at 50%, hostile-flee at 30%)
+- **Monster special attacks**: SPECUSE/SPECDMG with TEXX text overrides
+- **FLEE command**: escape combat (quickness/agility based chance, random exit)
+- **Combat stances**: OFFENSIVE (+15 att/-15 def), DEFENSIVE (-15/+15), BERSERK (+25/-25, Murg only), WARY (-5/+5)
+- **Roundtime**: weapon speed + quickness-based delay between attacks
+- **Death**: BP reaches 0 → Eternity, Inc. → DEPART to respawn at starting room with 25% BP
+- **Experience**: gained from kills (based on monster stats), level-up at level*1000 XP
+- **Body part hit locations**: random (head, body, arms, legs, back) for flavor text
+
+### Magic System
+- **PREPARE <spell>** then **CAST [target]** — two-step spell casting
+- **60+ spells** across 5 schools with mana costs and casting times
+- **Offensive**: Flame Bolt, Force Blade, Lightning Bolt, Freezing Sphere, Call Meteor, Chain Lightning, Energy Maelstrom
+- **Healing**: Body Restoration I/II/III, Invigoration I/II, Reconstruction, Regeneration
+- **Defense**: Mystic Armor (+20), Globe of Protection (+50/+100), Spectral Shield (+20), Spell Shield (+25)
+- **Buffs**: Strength I/II/III, Agility I/II/III, Fly, Invisibility, Haste
+- **Spellcraft skill checks**: school skill + spellcraft + willpower vs spell level
+- **Magic resistance**: monsters can resist spells, elemental immunities apply
+
+### Psionic System
+- **PSI <discipline>** then **PROJECT [target]** — two-step psionic projection
+- **Mind over Matter**: Kinetic Thrust, Pyrokinetics, Cryokinetics, Electrify, Wall of Force (+25), Force Field (+75), Flight
+- **Mind over Mind**: Psychic Blast, Psychic Crush, Terror, Pain, Screen/Shield/Barrier/Fortress defense chain
+- **Psi point costs**, skill checks (Psionics + school skill + willpower), psi resistance
+
+### Infrastructure
+- **PlayerMessageFunc**: engine can send targeted messages to specific players from background tasks
+- **Monster combat tick**: integrated into existing 3-second monster behavior loop
+- **Combat disengagement**: moving rooms, fleeing, or target dying clears combat state
+
 ## v0.96 — 2026-04-04
 
 ### Monster System

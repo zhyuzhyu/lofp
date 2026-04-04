@@ -100,9 +100,16 @@ type Player struct {
 	WolfForm    bool `bson:"wolfForm,omitempty" json:"wolfForm,omitempty"`
 	SlimeForm   bool `bson:"slimeForm,omitempty" json:"slimeForm,omitempty"`
 	Disguised   bool `bson:"disguised,omitempty" json:"disguised,omitempty"`
-	RoundTime   int  `bson:"roundTime" json:"roundTime"`
-	CanFly      bool `bson:"canFly" json:"canFly"`
+	RoundTime       int       `bson:"roundTime" json:"roundTime"`
+	RoundTimeExpiry time.Time `bson:"-" json:"-"` // transient: when roundtime ends
+	CanFly          bool      `bson:"canFly" json:"canFly"`
 	PreparedSpell   int       `bson:"preparedSpell,omitempty" json:"preparedSpell,omitempty"`
+
+	// Combat
+	Stance       int           `bson:"-" json:"-"`          // StanceNormal..StanceBerserk
+	CombatTarget *CombatTarget `bson:"-" json:"-"`          // current combat target
+	DefenseBonus int           `bson:"-" json:"-"`          // from spells/psi
+	PreparedPsi  int           `bson:"-" json:"-"`          // prepared psi discipline ID
 	TelepathyActive bool      `bson:"telepathyActive,omitempty" json:"telepathyActive,omitempty"`
 	TelepathyExpiry time.Time `bson:"telepathyExpiry,omitempty" json:"telepathyExpiry,omitempty"`
 	Emotional       bool      `bson:"emotional,omitempty" json:"emotional,omitempty"`

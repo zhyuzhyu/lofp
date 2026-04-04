@@ -9,6 +9,51 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v0.97 &mdash; April 4, 2026</h2>
+            <p className="text-gray-400 mb-3">Combat, spells, and psionics &mdash; fight monsters, cast spells, project disciplines.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Combat System</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>ATTACK/KILL &lt;monster&gt; to engage in combat</li>
+                  <li>To-hit calculation based on weapon skill, stats, level, and monster defense</li>
+                  <li>Damage from weapon Parameter1, modified by strength and armor</li>
+                  <li>Monster immunity system (edged, crushing, heat, cold, electric)</li>
+                  <li>Hostile monsters (strategy 301+) auto-attack players entering rooms</li>
+                  <li>Monsters attack back every few seconds based on Speed</li>
+                  <li>Monster flee AI based on strategy type and HP percentage</li>
+                  <li>FLEE to escape combat (quickness/agility based)</li>
+                  <li>Combat stances: OFFENSIVE, DEFENSIVE, BERSERK (Murg), WARY, NORMAL</li>
+                  <li>Roundtime system prevents action spam</li>
+                  <li>Death sends you to Eternity, Inc. &mdash; DEPART to respawn</li>
+                  <li>Experience from kills, level-up system</li>
+                  <li>Monster special attacks (SPECUSE/SPECDMG) with TEXX text</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Magic System</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>PREPARE &lt;spell&gt; then CAST [target] two-step casting</li>
+                  <li>60+ spells across 5 schools: Conjuration, Enchantment, Necromancy, General, Druidic</li>
+                  <li>Offensive spells: Flame Bolt, Lightning Bolt, Freezing Sphere, Call Meteor, and more</li>
+                  <li>Healing: Body Restoration I/II/III, Invigoration, Reconstruction, Regeneration</li>
+                  <li>Defense: Mystic Armor (+20), Globe of Protection (+50/+100), Spectral Shield</li>
+                  <li>Buffs: Strength I/II/III, Agility I/II/III, Fly, Invisibility, Haste</li>
+                  <li>Mana costs, spellcraft skill checks, magic resistance</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Psionic System</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>PSI &lt;discipline&gt; then PROJECT [target] two-step projection</li>
+                  <li>Mind over Matter: Kinetic Thrust, Pyrokinetics, Cryokinetics, Electrify, Wall of Force, Flight</li>
+                  <li>Mind over Mind: Psychic Blast, Psychic Crush, Terror, Pain, Psychic Screen/Shield/Barrier/Fortress</li>
+                  <li>Psi point costs, psionic skill checks, psi resistance</li>
+                </ul>
+              </div>
+            </div>
+
             <h2 className="text-amber-400 text-lg font-bold mb-1">v0.96 &mdash; April 4, 2026</h2>
             <p className="text-gray-400 mb-3">Living world &mdash; monster spawning, ambient text, wandering, 30+ new emotes, and submit system.</p>
 
