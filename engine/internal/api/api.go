@@ -88,6 +88,18 @@ func NewServer(ge *engine.GameEngine, parsed *gameworld.ParsedData, authSvc *aut
 		s.broadcastToRoom(roomNumber, "", messages)
 	})
 
+	// Local-only broadcast for monster activity (no hub, this machine only)
+	ge.SetLocalRoomBroadcast(func(roomNumber int, messages []string) {
+		s.mu.RLock()
+		for _, sess := range s.sessions {
+			if sess.Player == nil || sess.Player.RoomNumber != roomNumber {
+				continue
+			}
+			s.sendWSMessage(sess, "broadcast", map[string]interface{}{"messages": messages})
+		}
+		s.mu.RUnlock()
+	})
+
 	// Set up player-targeted messages for background tasks (combat, etc.)
 	ge.SetSendToPlayer(func(playerName string, messages []string) {
 		s.sendToPlayer(playerName, messages)

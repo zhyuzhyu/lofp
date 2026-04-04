@@ -1223,11 +1223,11 @@ func (e *GameEngine) findGuardFor(target *MonsterInstance, roomNum int) (*Monste
 
 func (e *GameEngine) cryForLaw(attacker *Player, target *MonsterInstance, targetDef *gameworld.MonsterDef) {
 	// Find guard/sentry type monsters in nearby rooms and aggro them
-	if e.monsterMgr == nil || e.roomBroadcast == nil {
+	if e.monsterMgr == nil || e.localRoomBroadcast == nil {
 		return
 	}
 	name := FormatMonsterName(targetDef, e.monAdjs)
-	e.roomBroadcast(attacker.RoomNumber, []string{fmt.Sprintf("%s%s cries out for help!", capArticle(articleFor(name, targetDef.Unique)), name)})
+	e.localRoomBroadcast(attacker.RoomNumber, []string{fmt.Sprintf("%s%s cries out for help!", capArticle(articleFor(name, targetDef.Unique)), name)})
 
 	// Alert guards in the same room
 	e.monsterMgr.mu.Lock()
@@ -1282,8 +1282,8 @@ func (e *GameEngine) monsterCombatTick(inst *MonsterInstance, def *gameworld.Mon
 	if e.sendToPlayer != nil && len(playerMsgs) > 0 {
 		e.sendToPlayer(target.FirstName, playerMsgs)
 	}
-	if e.roomBroadcast != nil && len(roomMsgs) > 0 {
-		e.roomBroadcast(inst.RoomNumber, roomMsgs)
+	if e.localRoomBroadcast != nil && len(roomMsgs) > 0 {
+		e.localRoomBroadcast(inst.RoomNumber, roomMsgs)
 	}
 
 	// Monster flee behavior (strategy 301-500 = flee when wounded, 501+ = fight to death)
@@ -1333,10 +1333,10 @@ func (e *GameEngine) monsterFlee(inst *MonsterInstance, def *gameworld.MonsterDe
 
 	fleeText := def.TextOverrides["TEXF"]
 	if fleeText != "" {
-		e.roomBroadcast(inst.RoomNumber, []string{fleeText + " " + dirName + "."})
+		e.localRoomBroadcast(inst.RoomNumber, []string{fleeText + " " + dirName + "."})
 	} else {
 		article := articleFor(name, def.Unique)
-		e.roomBroadcast(inst.RoomNumber, []string{fmt.Sprintf("%s%s flees %s!", capArticle(article), name, dirName)})
+		e.localRoomBroadcast(inst.RoomNumber, []string{fmt.Sprintf("%s%s flees %s!", capArticle(article), name, dirName)})
 	}
 
 	inst.Target = ""

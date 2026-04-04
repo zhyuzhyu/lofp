@@ -99,11 +99,11 @@ func (e *GameEngine) spawnForRoom(roomNum int) {
 		if spawned > 0 {
 			name := FormatMonsterName(def, e.monAdjs)
 			genText := def.TextOverrides["TEXG"]
-			if genText != "" && e.roomBroadcast != nil {
-				e.roomBroadcast(roomNum, []string{genText})
-			} else if spawned == 1 && e.roomBroadcast != nil {
+			if genText != "" && e.localRoomBroadcast != nil {
+				e.localRoomBroadcast(roomNum, []string{genText})
+			} else if spawned == 1 && e.localRoomBroadcast != nil {
 				article := articleFor(name, def.Unique)
-				e.roomBroadcast(roomNum, []string{fmt.Sprintf("%s%s appears.", capArticle(article), name)})
+				e.localRoomBroadcast(roomNum, []string{fmt.Sprintf("%s%s appears.", capArticle(article), name)})
 			}
 		}
 	}
@@ -316,7 +316,7 @@ func (e *GameEngine) cleanupCorpses() {
 }
 
 func (e *GameEngine) monsterTick(tick int) {
-	if e.monsterMgr == nil || e.roomBroadcast == nil {
+	if e.monsterMgr == nil || e.localRoomBroadcast == nil {
 		return
 	}
 
@@ -379,7 +379,7 @@ func (e *GameEngine) monsterTick(tick int) {
 			}
 			if len(texts) > 0 {
 				msg := texts[rand.Intn(len(texts))]
-				e.roomBroadcast(inst.RoomNumber, []string{msg})
+				e.localRoomBroadcast(inst.RoomNumber, []string{msg})
 			}
 		}
 
@@ -420,16 +420,16 @@ func (e *GameEngine) monsterTick(tick int) {
 			// Departure message
 			moveText := def.TextOverrides["TEXM"]
 			if moveText != "" {
-				e.roomBroadcast(inst.RoomNumber, []string{moveText + " " + dirName + "."})
+				e.localRoomBroadcast(inst.RoomNumber, []string{moveText + " " + dirName + "."})
 			} else {
 				article := "A"
 				if len(name) > 0 && strings.ContainsRune("aeiouAEIOU", rune(name[0])) {
 					article = "An"
 				}
 				if def.Unique {
-					e.roomBroadcast(inst.RoomNumber, []string{fmt.Sprintf("%s wanders %s.", name, dirName)})
+					e.localRoomBroadcast(inst.RoomNumber, []string{fmt.Sprintf("%s wanders %s.", name, dirName)})
 				} else {
-					e.roomBroadcast(inst.RoomNumber, []string{fmt.Sprintf("%s %s wanders %s.", article, name, dirName)})
+					e.localRoomBroadcast(inst.RoomNumber, []string{fmt.Sprintf("%s %s wanders %s.", article, name, dirName)})
 				}
 			}
 
@@ -439,16 +439,16 @@ func (e *GameEngine) monsterTick(tick int) {
 			// Arrival message
 			entryText := def.TextOverrides["TEXE"]
 			if entryText != "" {
-				e.roomBroadcast(chosen.destID, []string{entryText})
+				e.localRoomBroadcast(chosen.destID, []string{entryText})
 			} else {
 				article := "A"
 				if len(name) > 0 && strings.ContainsRune("aeiouAEIOU", rune(name[0])) {
 					article = "An"
 				}
 				if def.Unique {
-					e.roomBroadcast(chosen.destID, []string{fmt.Sprintf("%s has arrived.", name)})
+					e.localRoomBroadcast(chosen.destID, []string{fmt.Sprintf("%s has arrived.", name)})
 				} else {
-					e.roomBroadcast(chosen.destID, []string{fmt.Sprintf("%s %s has arrived.", article, name)})
+					e.localRoomBroadcast(chosen.destID, []string{fmt.Sprintf("%s %s has arrived.", article, name)})
 				}
 			}
 		}

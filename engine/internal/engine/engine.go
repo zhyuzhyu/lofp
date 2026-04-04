@@ -91,6 +91,10 @@ type RoomChangeCallback func(change RoomChange)
 // RoomBroadcastFunc sends messages to all players in a room (used by background tasks).
 type RoomBroadcastFunc func(roomNumber int, messages []string)
 
+// LocalRoomBroadcastFunc sends messages to players on THIS machine only (not via hub).
+// Used for monster ambient text and combat which is per-machine.
+type LocalRoomBroadcastFunc func(roomNumber int, messages []string)
+
 // PlayerMessageFunc sends messages to a specific player by name (used by background tasks).
 type PlayerMessageFunc func(playerName string, messages []string)
 
@@ -106,8 +110,9 @@ type GameEngine struct {
 	startRoom       int
 	sessions        SessionProvider
 	onRoomChange    RoomChangeCallback
-	roomBroadcast   RoomBroadcastFunc
-	sendToPlayer    PlayerMessageFunc
+	roomBroadcast      RoomBroadcastFunc
+	localRoomBroadcast LocalRoomBroadcastFunc
+	sendToPlayer       PlayerMessageFunc
 	monsterMgr      *monsterManager
 	RegionWeather   map[int]int // region -> weather state
 	monsterLists    []gameworld.MonsterList
@@ -131,6 +136,11 @@ func (e *GameEngine) SetRoomChangeCallback(cb RoomChangeCallback) {
 // SetRoomBroadcast sets the function used by background tasks to send messages to rooms.
 func (e *GameEngine) SetRoomBroadcast(fn RoomBroadcastFunc) {
 	e.roomBroadcast = fn
+}
+
+// SetLocalRoomBroadcast sets a local-only broadcast (no hub). Used for monster activity.
+func (e *GameEngine) SetLocalRoomBroadcast(fn LocalRoomBroadcastFunc) {
+	e.localRoomBroadcast = fn
 }
 
 // SetSendToPlayer sets the function for sending targeted messages from background tasks.
