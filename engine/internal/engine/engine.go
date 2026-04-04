@@ -907,7 +907,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		player.PromptMode = false; e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"Prompt indicators off."}}
 	case "VERSION", "NEWS", "NOTES":
-		return &CommandResult{Messages: []string{"Legends of Future Past v10.0.1"}}
+		return &CommandResult{Messages: []string{"Legends of Future Past v10.0.2"}}
 	case "CREDITS":
 		return &CommandResult{Messages: []string{
 			"",

@@ -59,16 +59,21 @@ The game world is defined in a custom scripting language (documented in `origina
 - **Variables**: Named variables + internal vars (stats, time, flags, item vals)
 - Config file: `original/scripts/LEGENDS.CFG` lists all scripts to load in order
 
-## Current State (v0.97)
+## Current State (v10.0.2)
 
-- Script parser loads 2273 rooms, 1990 items, 297 monsters, 1221 nouns, 1350 adjectives
-- Full combat system with to-hit/damage/armor/immunities/crits/slayers
-- 60+ spells across 5 schools, psionic system with 30 disciplines
-- Monster AI: hostile aggro, flee behavior, special attacks, guard behavior
-- Monster spawning, wandering, ambient text (TEX1-4)
-- 150+ emotes including race-specific, self-targeting, submit-gated
+- Script parser loads 2273+ rooms, 1990+ items, 297 monsters with case-insensitive file loading
+- Full combat system: original [ToHit/Roll] format, weapon crits/slayers, fatigue, weapon clash
+- 60+ spells across 5 schools, 30+ psionic disciplines
+- Complete crafting: mining, smelting, forging, weaving, dyeing, foraging, alchemy (32 recipes)
+- 36 skills with build point costs, prerequisites, and mechanical effects
+- Treasure system: coin drops, weapon/armor/scroll/chest drops scaled by monster TREASURE level
+- Monster AI: hostile aggro, flee behavior, special attacks, guard, demand-based spawning
+- ELSE branches in script conditionals, all portal types supported
+- 150+ emotes, race-specific, submit-gated interactions
+- Character soft-delete with admin recovery, unique first names
+- Security: rate limiting, connection caps, chat flood protection, HTML sanitization
 - WebSocket-based real-time multiplayer
-- Admin panel for inspecting rooms/items/scripts/players
+- Admin panel for rooms/items/monsters/players/logs
 - Production: Fly.io (2 machines, ord region) at lofp.metavert.io
 
 ## Units

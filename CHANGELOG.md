@@ -1,5 +1,37 @@
 # Changelog
 
+## v10.0.2 — 2026-04-04
+
+### Script Engine
+- **ELSE branches** in script conditionals now work (IFVAR, IFITEM, IFNOITEM, IFCARRY, IFFULLDESC, IFIN)
+- **Case-insensitive file loading** for DOS-era script filenames — scans directory for matching files regardless of case
+- **PORTAL_CLIMBUP, PORTAL_CLIMBDOWN, PORTAL_OVER** types added to parser (were silently falling back to MISC)
+- **New script variables**: WARRANT, GFLAG1-4, NUMPLRS, ARENADEATH, SITTING, LAYING, STANDING, KNEELING, WIELDED, WEALTH, REGION
+
+### GM Tools
+- **@line1/2/3 [player] <text>** — set persistent description lines on any character, visible on EXAMINE
+- **@entry/@exit <text>** — custom room entry/exit messages (replaces default "arrives"/"goes north")
+- **@speech <player> <verb phrase>** — set custom speech patterns (e.g., "says grimly", "squawks", "giggle")
+- **REPORT <message>** — player command to file reports (broadcast to all GMs, logged with "report" event type)
+- **@help** updated with all new commands
+
+### Security Hardening
+- **Per-IP WebSocket connection limit** (5 max per IP, 500 total)
+- **Command rate limiting** (10 commands/sec, then throttled)
+- **Chat flood protection** (5 broadcast messages per 10 seconds)
+- **HTML entity sanitization** on all outgoing messages (defense in depth against XSS)
+- **REST API auth gates** — /api/characters GET and POST now require authentication
+- **MongoDB regex injection fix** in resolvePlayerByName (regexp.QuoteMeta)
+- **JWT lifetime reduced** from 30 days to 7 days
+- **Dead player command restriction** — limited to DEPART, LOOK, WHO, QUIT, EXP, STATUS, HEALTH
+
+### Fixes
+- **Room 225 stairway** — PORTAL_CLIMBUP type was parsed as MISC, blocking GO STAIR
+- **Temple of Amilor** — room 592 missing due to AMILOR.SCR case mismatch in git; ELSE branches not firing
+- **SKILLS command** — was hardcoded to "no skills yet", now shows actual trained skills
+- **Grammar fixes** — "A a fist" → proper article, "your an axe" → "your axe", natural weapons don't drop
+- **SPEECH** — removed as player command, now GM-only via @speech
+
 ## v10.0.1 — 2026-04-04
 
 ### Character Management

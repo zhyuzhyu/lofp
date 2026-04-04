@@ -9,6 +9,42 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v10.0.2 &mdash; April 4, 2026</h2>
+            <p className="text-gray-400 mb-3">Script engine improvements, portal fixes, and quality of life.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Script Engine</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>ELSE branches now work in script conditionals (IFVAR, IFITEM, etc.)</li>
+                  <li>Case-insensitive file loading for DOS-era script filenames</li>
+                  <li>PORTAL_CLIMBUP and PORTAL_CLIMBDOWN types now recognized by parser</li>
+                  <li>New script variables: WARRANT, GFLAG1-4, NUMPLRS, ARENADEATH, position states</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">GM Tools</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>@line1/2/3 &mdash; set persistent description lines on any character</li>
+                  <li>@entry/@exit &mdash; custom room entry and exit messages</li>
+                  <li>@speech &mdash; set custom speech patterns (e.g., &ldquo;says grimly&rdquo;, &ldquo;squawks&rdquo;)</li>
+                  <li>REPORT command &mdash; players can file reports (broadcast to GMs, logged)</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Fixes</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Room 225 stairway (GO STAIR) now works correctly</li>
+                  <li>Temple of Amilor (rooms 591-592) doorway and water blessing work</li>
+                  <li>AMILOR.SCR now loads correctly on Linux (was lowercase in git)</li>
+                  <li>SKILLS command now shows your actual trained skills</li>
+                  <li>Fixed grammar in weapon drops and combat messages</li>
+                  <li>Natural weapons (claws, teeth, fists) no longer drop as loot</li>
+                  <li>Dead players restricted to essential commands (DEPART, LOOK, etc.)</li>
+                </ul>
+              </div>
+            </div>
+
             <h2 className="text-amber-400 text-lg font-bold mb-1">v10.0.1 &mdash; April 4, 2026</h2>
             <p className="text-gray-400 mb-3">Character management, script variables, admin tools, and bug fixes.</p>
 
