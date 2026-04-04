@@ -18,8 +18,9 @@ import (
 
 var validNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z'-]{0,19}$`)
 
-// reservedNames contains names that cannot be used for characters.
-var reservedNames = map[string]bool{
+// reservedExactNames are blocked as whole-word matches only.
+// Monster/creature names and game terms — "Pendragon" is fine, "Dragon" is not.
+var reservedExactNames = map[string]bool{
 	// Monster/creature names
 	"skeleton": true, "zombie": true, "ghoul": true, "vampire": true, "lich": true,
 	"goblin": true, "ogre": true, "troll": true, "orc": true, "dragon": true,
@@ -31,11 +32,13 @@ var reservedNames = map[string]bool{
 	// Game terms
 	"admin": true, "moderator": true, "gamemaster": true, "system": true, "server": true,
 	"god": true, "goddess": true, "eternity": true, "legends": true,
-	// Profanity/offensive
-	"fuck": true, "shit": true, "damn": true, "ass": true, "bitch": true,
-	"dick": true, "cock": true, "pussy": true, "cunt": true, "bastard": true,
-	"whore": true, "slut": true, "nigger": true, "nigga": true, "faggot": true,
-	"retard": true, "nazi": true, "hitler": true, "rape": true, "piss": true,
+}
+
+// reservedSubstrings are blocked as substrings — these are slurs and profanity
+// where even partial matches (e.g., in compound names) should be caught.
+var reservedSubstrings = []string{
+	"fuck", "shit", "cunt", "nigger", "nigga", "faggot",
+	"nazi", "hitler",
 }
 
 // ValidateCharacterInput checks character creation parameters.
@@ -46,21 +49,24 @@ func ValidateCharacterInput(firstName, lastName string, race, gender int) error 
 	if !validNamePattern.MatchString(lastName) {
 		return fmt.Errorf("last name must be 1-20 letters (may include ' and -)")
 	}
-	// Check reserved names
 	fnLower := strings.ToLower(firstName)
 	lnLower := strings.ToLower(lastName)
-	if reservedNames[fnLower] {
+
+	// Exact match against reserved names (monster names, game terms)
+	if reservedExactNames[fnLower] {
 		return fmt.Errorf("that first name is reserved. Please choose another")
 	}
-	if reservedNames[lnLower] {
+	if reservedExactNames[lnLower] {
 		return fmt.Errorf("that last name is reserved. Please choose another")
 	}
-	// Also check if any reserved word is a substring
-	for word := range reservedNames {
-		if len(word) >= 4 && (strings.Contains(fnLower, word) || strings.Contains(lnLower, word)) {
-			return fmt.Errorf("that name contains a reserved word. Please choose another")
+
+	// Substring match for slurs/profanity only
+	for _, word := range reservedSubstrings {
+		if strings.Contains(fnLower, word) || strings.Contains(lnLower, word) {
+			return fmt.Errorf("that name contains an inappropriate word. Please choose another")
 		}
 	}
+
 	if race < 1 || race > 8 {
 		return fmt.Errorf("invalid race")
 	}
