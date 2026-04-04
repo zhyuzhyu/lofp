@@ -953,7 +953,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 	case "MASTER":
 		return &CommandResult{Messages: []string{"[Spell mastery coming soon.]"}}
 	case "NOCK", "LOAD":
-		return &CommandResult{Messages: []string{"[Ranged combat coming soon.]"}}
+		return e.doLoadWeapon(ctx, player, args)
 	case "SPECIALIZE":
 		return &CommandResult{Messages: []string{"[Weapon specialization coming soon.]"}}
 	// === SKILL-BASED (TODO: implement) ===
@@ -2007,6 +2007,26 @@ func (e *GameEngine) doGet(ctx context.Context, player *Player, args []string) *
 		name := e.getItemNounName(itemDef)
 		if matchesTarget(name, target, e.getAdjName(ri.Adj1)) {
 			if skip > 0 { skip--; continue }
+
+			// MONEY items auto-convert to currency
+			if itemDef.Type == "MONEY" {
+				coins := ri.Val1
+				if coins <= 0 { coins = 1 }
+				room.Items = append(room.Items[:i], room.Items[i+1:]...)
+				e.notifyRoomChange(RoomChange{RoomNumber: player.RoomNumber, Type: "item_remove", ItemRef: ri.Ref})
+				player.Copper += coins
+				// Auto-convert up
+				player.Silver += player.Copper / 10
+				player.Copper = player.Copper % 10
+				player.Gold += player.Silver / 10
+				player.Silver = player.Silver % 10
+				e.SavePlayer(ctx, player)
+				return &CommandResult{
+					Messages:      []string{fmt.Sprintf("You pick up %d coins.", coins)},
+					RoomBroadcast: []string{fmt.Sprintf("%s picks up some coins.", player.FirstName)},
+				}
+			}
+
 			// Add to inventory
 			player.Inventory = append(player.Inventory, InventoryItem{
 				Archetype: ri.Archetype,
@@ -3903,6 +3923,68 @@ func isWeapon(itemType string) bool {
 		return true
 	}
 	return false
+}
+
+// doLoadWeapon handles NOCK/LOAD <weapon> WITH <ammo>.
+// Bows/crossbows need to be loaded with arrows/bolts before firing.
+func (e *GameEngine) doLoadWeapon(ctx context.Context, player *Player, args []string) *CommandResult {
+	if len(args) == 0 {
+		return &CommandResult{Messages: []string{"Load what? Usage: NOCK <weapon> WITH <ammo>"}}
+	}
+	raw := strings.ToLower(strings.Join(args, " "))
+	weaponTarget, ammoTarget := parseWithClause(raw)
+	if ammoTarget == "" {
+		return &CommandResult{Messages: []string{"Load with what? Usage: NOCK <weapon> WITH <ammo>"}}
+	}
+
+	// Find the weapon (must be wielded or in inventory)
+	if player.Wielded == nil {
+		return &CommandResult{Messages: []string{"You aren't wielding a ranged weapon."}}
+	}
+	weaponDef := e.items[player.Wielded.Archetype]
+	if weaponDef == nil || (weaponDef.Type != "BOW_WEAPON" && weaponDef.Type != "HANDGUN" && weaponDef.Type != "RIFLE") {
+		return &CommandResult{Messages: []string{"You aren't wielding a ranged weapon."}}
+	}
+	wepName := e.getItemNounName(weaponDef)
+	if !strings.HasPrefix(strings.ToLower(wepName), weaponTarget) && weaponTarget != "bow" && weaponTarget != "crossbow" && weaponTarget != "gun" {
+		return &CommandResult{Messages: []string{"You aren't wielding that weapon."}}
+	}
+
+	// Check if already loaded
+	if player.Wielded.Val3 > 0 {
+		return &CommandResult{Messages: []string{fmt.Sprintf("Your %s is already loaded.", wepName)}}
+	}
+
+	// Find ammo in inventory (must match Parameter2 ammo type on weapon)
+	ammoType := weaponDef.Parameter2 // what ammo this weapon takes
+	for i, ii := range player.Inventory {
+		ammoDef := e.items[ii.Archetype]
+		if ammoDef == nil {
+			continue
+		}
+		ammoName := e.getItemNounName(ammoDef)
+		if !strings.HasPrefix(strings.ToLower(ammoName), ammoTarget) {
+			continue
+		}
+		// Check ammo type match
+		if ammoType > 0 && ii.Archetype != ammoType {
+			return &CommandResult{Messages: []string{fmt.Sprintf("You can't load your %s with that.", wepName)}}
+		}
+		// Load the weapon: set Val3 > 0 to indicate loaded
+		player.Wielded.Val3 = ii.Archetype
+		// Remove one ammo from inventory (or reduce bundle count)
+		player.Inventory = append(player.Inventory[:i], player.Inventory[i+1:]...)
+		e.SavePlayer(ctx, player)
+
+		ammoDisplayName := e.formatItemName(ammoDef, ii.Adj1, ii.Adj2, ii.Adj3)
+		wepDisplayName := e.formatItemName(weaponDef, player.Wielded.Adj1, player.Wielded.Adj2, player.Wielded.Adj3)
+		return &CommandResult{
+			Messages:      []string{fmt.Sprintf("You load your %s with %s.", wepDisplayName, ammoDisplayName)},
+			RoomBroadcast: []string{fmt.Sprintf("%s loads %s %s.", player.FirstName, player.Possessive(), wepDisplayName)},
+		}
+	}
+
+	return &CommandResult{Messages: []string{fmt.Sprintf("You don't have any '%s' to load.", ammoTarget)}}
 }
 
 func genderName(g int) string {

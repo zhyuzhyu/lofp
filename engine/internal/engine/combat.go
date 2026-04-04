@@ -615,6 +615,12 @@ func (e *GameEngine) doAttackMonster(ctx context.Context, player *Player, target
 		weaponDef = e.items[player.Wielded.Archetype]
 	}
 
+	// Check ranged weapon is loaded
+	isRangedWeapon := weaponDef != nil && (weaponDef.Type == "BOW_WEAPON" || weaponDef.Type == "HANDGUN" || weaponDef.Type == "RIFLE")
+	if isRangedWeapon && (player.Wielded == nil || player.Wielded.Val3 <= 0) {
+		return &CommandResult{Messages: []string{fmt.Sprintf("Your %s is not loaded! Use NOCK or LOAD first.", strings.ToLower(e.nouns[weaponDef.NameID]))}}
+	}
+
 	// Check MAGICWEAPON requirement
 	if !checkMagicWeapon(player.Wielded, weaponDef, def) {
 		texI := def.TextOverrides["TEXI"]
@@ -802,6 +808,11 @@ func (e *GameEngine) doAttackMonster(ctx context.Context, player *Player, target
 	}
 	player.RoundTimeExpiry = time.Now().Add(time.Duration(rtSeconds) * time.Second)
 	result.Messages = append(result.Messages, fmt.Sprintf("[Round: %d sec]", rtSeconds))
+
+	// Unload ranged weapon after firing
+	if isRangedWeapon && player.Wielded != nil {
+		player.Wielded.Val3 = 0 // unloaded
+	}
 
 	// Attacking always reveals you (both hidden and invisible)
 	if player.Hidden || player.Invisible {
