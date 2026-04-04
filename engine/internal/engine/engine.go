@@ -2,6 +2,9 @@ package engine
 
 import (
 	"context"
+	cryptorand "crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"math/rand"
@@ -482,10 +485,13 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 	verb := parts[0]
 	args := parts[1:]
 
-	// GM commands (@ prefix) — silent fail if not GM
+	// GM commands (@ prefix) — silent fail if not GM, also check bot GM permission
 	if strings.HasPrefix(verb, "@") {
 		if !player.IsGM {
 			return &CommandResult{Messages: []string{fmt.Sprintf("I don't understand \"%s\". Type HELP for commands.", strings.ToLower(input))}}
+		}
+		if player.IsBot && !player.BotGMAllowed {
+			return &CommandResult{Messages: []string{"This bot does not have permission to use GM commands."}}
 		}
 		return e.processGMCommand(ctx, player, verb, args, input)
 	}
@@ -3691,6 +3697,9 @@ func (e *GameEngine) doWho(player *Player) *CommandResult {
 				continue
 			}
 			name := p.FirstName
+			if p.IsBot {
+				name += " [Bot]"
+			}
 			if p.IsGM && p.GMHat {
 				name += " [Host]"
 			}
@@ -4291,6 +4300,70 @@ func (e *GameEngine) doLoadWeapon(ctx context.Context, player *Player, args []st
 	}
 
 	return &CommandResult{Messages: []string{fmt.Sprintf("You don't have any '%s' to load.", ammoTarget)}}
+}
+
+// GenerateAPIKey creates a new API key for a character. Returns the raw key (shown once).
+func (e *GameEngine) GenerateAPIKey(ctx context.Context, firstName, accountID string, allowGM bool) (string, error) {
+	if e.db == nil {
+		return "", fmt.Errorf("no database")
+	}
+	// Generate 32 random bytes → 64 hex chars with prefix
+	raw := make([]byte, 32)
+	if _, err := cryptorand.Read(raw); err != nil {
+		return "", err
+	}
+	key := "lofp_" + hex.EncodeToString(raw)
+	prefix := key[:13] // "lofp_" + first 8 hex chars
+
+	// Hash the key for storage
+	hash := sha256.Sum256([]byte(key))
+	hashStr := hex.EncodeToString(hash[:])
+
+	coll := e.db.Collection("players")
+	filter := bson.M{"firstName": firstName, "accountId": accountID, "deletedAt": bson.M{"$exists": false}}
+	update := bson.M{"$set": bson.M{
+		"apiKeyHash":   hashStr,
+		"apiKeyPrefix":  prefix,
+		"botGMAllowed":  allowGM,
+	}}
+	result, err := coll.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return "", err
+	}
+	if result.MatchedCount == 0 {
+		return "", fmt.Errorf("character not found or not owned by you")
+	}
+	return key, nil
+}
+
+// RevokeAPIKey removes the API key from a character.
+func (e *GameEngine) RevokeAPIKey(ctx context.Context, firstName, accountID string) error {
+	if e.db == nil {
+		return fmt.Errorf("no database")
+	}
+	coll := e.db.Collection("players")
+	filter := bson.M{"firstName": firstName, "accountId": accountID}
+	update := bson.M{"$unset": bson.M{"apiKeyHash": "", "apiKeyPrefix": "", "botGMAllowed": ""}}
+	_, err := coll.UpdateOne(ctx, filter, update)
+	return err
+}
+
+// ValidateAPIKey checks an API key and returns the associated player.
+func (e *GameEngine) ValidateAPIKey(ctx context.Context, key string) (*Player, error) {
+	if e.db == nil {
+		return nil, fmt.Errorf("no database")
+	}
+	hash := sha256.Sum256([]byte(key))
+	hashStr := hex.EncodeToString(hash[:])
+
+	coll := e.db.Collection("players")
+	var player Player
+	err := coll.FindOne(ctx, bson.M{"apiKeyHash": hashStr, "deletedAt": bson.M{"$exists": false}}).Decode(&player)
+	if err != nil {
+		return nil, fmt.Errorf("invalid API key")
+	}
+	player.IsBot = true
+	return &player, nil
 }
 
 func genderName(g int) string {

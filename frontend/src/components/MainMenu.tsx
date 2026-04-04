@@ -21,6 +21,8 @@ interface SavedPlayer {
   bodyPoints: number
   maxBodyPoints: number
   updatedAt: string
+  apiKeyPrefix?: string
+  isGM?: boolean
 }
 
 interface Props {
@@ -35,8 +37,11 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
   const [loading, setLoading] = useState(true)
   const [backendUp, setBackendUp] = useState(true)
   const [loginError, setLoginError] = useState('')
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null) // firstName to delete
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [apiKeyModal, setApiKeyModal] = useState<string | null>(null) // firstName for API key
+  const [generatedKey, setGeneratedKey] = useState<string | null>(null)
+  const [keyAllowGM, setKeyAllowGM] = useState(false)
 
   const isLoggedIn = !!user
 
@@ -81,6 +86,31 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
     } catch (_) { /* ignore */ }
     setDeleting(false)
     setDeleteConfirm(null)
+  }
+
+  const handleGenerateAPIKey = async (firstName: string) => {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (user?.token) headers['Authorization'] = `Bearer ${user.token}`
+      const r = await fetch(`/api/characters/${firstName}/apikey`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ allowGM: keyAllowGM }),
+      })
+      const data = await r.json()
+      if (data.key) {
+        setGeneratedKey(data.key)
+      } else {
+        alert(data.error || 'Failed to generate key')
+      }
+    } catch (_) { alert('Failed to generate key') }
+  }
+
+  const handleRevokeAPIKey = async (firstName: string) => {
+    const headers: Record<string, string> = {}
+    if (user?.token) headers['Authorization'] = `Bearer ${user.token}`
+    await fetch(`/api/characters/${firstName}/apikey`, { method: 'DELETE', headers })
+    setApiKeyModal(null)
+    setGeneratedKey(null)
   }
 
   const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
@@ -202,6 +232,13 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
                           </div>
                         </div>
                         <button
+                          onClick={(ev) => { ev.stopPropagation(); setApiKeyModal(p.firstName); setGeneratedKey(null); setKeyAllowGM(false) }}
+                          className="text-gray-700 hover:text-amber-500 text-xs font-mono transition-colors px-2 py-1"
+                          title="Generate Bot API Key"
+                        >
+                          {p.apiKeyPrefix ? '🤖' : '⚙'}
+                        </button>
+                        <button
                           onClick={(ev) => { ev.stopPropagation(); setDeleteConfirm(p.firstName) }}
                           className="text-gray-700 hover:text-red-500 text-xs font-mono transition-colors px-2 py-1"
                           title="Delete character"
@@ -237,6 +274,59 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
             Version 10.0.2 &mdash; Version Notes
           </button>
         </div>
+
+        {/* API Key modal */}
+        {apiKeyModal && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+            <div className="bg-[#1a1a1a] border border-amber-900 rounded-lg p-6 max-w-lg">
+              <h3 className="text-amber-400 font-mono font-bold text-lg mb-3">Bot API Key — {apiKeyModal}</h3>
+              {generatedKey ? (
+                <div>
+                  <p className="text-gray-300 font-mono text-sm mb-2">Your API key (copy it now — it won't be shown again):</p>
+                  <div className="bg-black border border-[#444] rounded p-3 font-mono text-xs text-green-400 break-all select-all mb-4">
+                    {generatedKey}
+                  </div>
+                  <p className="text-gray-500 font-mono text-xs mb-4">Use this key to connect a bot via WebSocket. See the /bots directory for examples.</p>
+                  <button onClick={() => { setApiKeyModal(null); setGeneratedKey(null) }}
+                    className="px-4 py-2 bg-[#333] hover:bg-[#444] text-gray-300 font-mono text-sm rounded">
+                    Done
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-gray-300 font-mono text-sm mb-3">
+                    Generate an API key to control this character via a bot program.
+                    {players.find(p => p.firstName === apiKeyModal)?.apiKeyPrefix && (
+                      <span className="text-yellow-400"> This character already has a key ({players.find(p => p.firstName === apiKeyModal)?.apiKeyPrefix}...). Generating a new one will replace it.</span>
+                    )}
+                  </p>
+                  {players.find(p => p.firstName === apiKeyModal && (p as any).isGM) && (
+                    <label className="flex items-center gap-2 mb-3 text-gray-400 text-xs font-mono cursor-pointer">
+                      <input type="checkbox" checked={keyAllowGM} onChange={e => setKeyAllowGM(e.target.checked)} className="accent-amber-500" />
+                      Allow bot to use GM commands
+                    </label>
+                  )}
+                  <div className="flex gap-3 justify-end">
+                    <button onClick={() => setApiKeyModal(null)}
+                      className="px-4 py-2 bg-[#333] hover:bg-[#444] text-gray-300 font-mono text-sm rounded">
+                      Cancel
+                    </button>
+                    {players.find(p => p.firstName === apiKeyModal)?.apiKeyPrefix && (
+                      <button onClick={() => handleRevokeAPIKey(apiKeyModal)}
+                        className="px-4 py-2 bg-red-900 hover:bg-red-800 text-red-200 font-mono text-sm rounded">
+                        Revoke Key
+                      </button>
+                    )}
+                    <button onClick={() => handleGenerateAPIKey(apiKeyModal)}
+                      className="px-4 py-2 bg-amber-700 hover:bg-amber-600 text-white font-mono text-sm rounded">
+                      Generate Key
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Delete confirmation modal */}
         {deleteConfirm && (

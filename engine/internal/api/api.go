@@ -179,6 +179,8 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/characters", s.handleCreateCharacter).Methods("POST")
 	api.HandleFunc("/characters/{firstName}", s.handleDeleteCharacter).Methods("DELETE")
 	api.HandleFunc("/characters/{firstName}/gm", s.handleToggleGM).Methods("PUT")
+	api.HandleFunc("/characters/{firstName}/apikey", s.handleGenerateAPIKey).Methods("POST")
+	api.HandleFunc("/characters/{firstName}/apikey", s.handleRevokeAPIKey).Methods("DELETE")
 
 	// Session captures (authenticated)
 	api.HandleFunc("/captures", s.handleListCaptures).Methods("GET")
@@ -427,6 +429,39 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 					"error":   "auth not configured",
 				})
 			}
+
+		case "auth_apikey":
+			var keyMsg struct {
+				Key string `json:"key"`
+			}
+			json.Unmarshal(msg.Data, &keyMsg)
+			ctx := context.Background()
+			player, err := s.engine.ValidateAPIKey(ctx, keyMsg.Key)
+			if err != nil {
+				s.sendWSMessage(session, "auth_result", map[string]interface{}{
+					"success": false,
+					"error":   "invalid API key",
+				})
+				continue
+			}
+			session.Player = player
+			s.mu.Lock()
+			s.sessions[player.FirstName] = session
+			s.mu.Unlock()
+			s.hub.RegisterPlayer(player.FirstName, player.FullName(), player.RoomNumber,
+				player.Race, player.RaceName(), player.Position,
+				player.IsGM, player.GMHat, player.GMHidden, player.GMInvis, player.Hidden)
+			s.gamelog.Log(gamelog.EventGameEnter, player.FullName(), player.AccountID,
+				"bot login via API key", player.RoomNumber, "")
+			s.broadcastGlobal(player.FirstName,
+				[]string{fmt.Sprintf("** %s has just entered the Realms.", player.FirstName)})
+			result := s.engine.EnterRoom(ctx, player)
+			s.sendWSResult(session, result)
+			s.sendWSMessage(session, "auth_result", map[string]interface{}{
+				"success":   true,
+				"character": player.FirstName,
+			})
+			continue
 
 		case "create_character":
 			var create CreateCharMsg
@@ -1220,6 +1255,47 @@ func (s *Server) handleCreateCharacter(w http.ResponseWriter, r *http.Request) {
 	player := s.engine.CreateNewPlayer(r.Context(), req.FirstName, req.LastName, req.Race, req.Gender, accountID)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(player)
+}
+
+func (s *Server) handleGenerateAPIKey(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	accountID := s.getAccountID(r)
+	if accountID == "" {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	var req struct {
+		AllowGM bool `json:"allowGM"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	key, err := s.engine.GenerateAPIKey(r.Context(), vars["firstName"], accountID, req.AllowGM)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"key": key})
+}
+
+func (s *Server) handleRevokeAPIKey(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	accountID := s.getAccountID(r)
+	if accountID == "" {
+		http.Error(w, "unauthorized", 401)
+		return
+	}
+	err := s.engine.RevokeAPIKey(r.Context(), vars["firstName"], accountID)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "revoked"})
 }
 
 func (s *Server) handleDeleteCharacter(w http.ResponseWriter, r *http.Request) {

@@ -161,6 +161,12 @@ type Player struct {
 	EntryEcho  string `bson:"entryEcho,omitempty" json:"entryEcho,omitempty"` // custom room entry text (replaces "X arrives.")
 	ExitEcho   string `bson:"exitEcho,omitempty" json:"exitEcho,omitempty"`   // custom room exit text (replaces "X goes north.")
 
+	// Bot / API Key
+	APIKeyHash    string `bson:"apiKeyHash,omitempty" json:"-"`                       // bcrypt hash of API key (never sent to client)
+	APIKeyPrefix  string `bson:"apiKeyPrefix,omitempty" json:"apiKeyPrefix,omitempty"` // first 8 chars for display
+	BotGMAllowed  bool   `bson:"botGMAllowed,omitempty" json:"botGMAllowed,omitempty"` // whether bot can use GM commands
+	IsBot         bool   `bson:"-" json:"-"`                                           // transient: connected via API key
+
 	// Game state
 	BriefMode    bool   `bson:"briefMode" json:"briefMode"`
 	PromptMode   bool   `bson:"promptMode" json:"promptMode"`
