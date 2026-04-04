@@ -31,12 +31,36 @@ type ParseResult struct {
 }
 
 // ParseConfig reads LEGENDS.CFG and loads all referenced script files.
+// resolveFileCaseInsensitive finds a file by name with case-insensitive matching.
+// The original game ran on MS-DOS (case-insensitive), so script filenames in
+// LEGENDS.CFG may not match the actual file case on disk.
+func resolveFileCaseInsensitive(path string) string {
+	// Try exact path first
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	// Scan the directory for a case-insensitive match
+	dir := filepath.Dir(path)
+	base := filepath.Base(path)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return path // can't read dir, return original
+	}
+	for _, e := range entries {
+		if strings.EqualFold(e.Name(), base) {
+			return filepath.Join(dir, e.Name())
+		}
+	}
+	return path // no match found, return original (will error on open)
+}
+
 func ParseConfig(configPath string) (*ParseResult, error) {
 	result := &ParseResult{
 		StartRoom: 3950,
 		BumpRoom:  201,
 	}
 
+	configPath = resolveFileCaseInsensitive(configPath)
 	f, err := os.Open(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("open config: %w", err)
@@ -61,7 +85,7 @@ func ParseConfig(configPath string) (*ParseResult, error) {
 		case "BUMPROOM":
 			result.BumpRoom, _ = strconv.Atoi(fields[1])
 		case "SCRIPT":
-			scriptFile := filepath.Join(dir, fields[1])
+			scriptFile := resolveFileCaseInsensitive(filepath.Join(dir, fields[1]))
 			if err := parseScriptFile(scriptFile, result); err != nil {
 				fmt.Printf("Warning: could not parse %s: %v\n", fields[1], err)
 			}
@@ -125,6 +149,7 @@ func deduplicateRooms(rooms []gameworld.Room) []gameworld.Room {
 }
 
 func parseScriptFile(path string, result *ParseResult) error {
+	path = resolveFileCaseInsensitive(path)
 	f, err := os.Open(path)
 	if err != nil {
 		return err
