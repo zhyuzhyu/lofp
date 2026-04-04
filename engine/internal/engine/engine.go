@@ -636,7 +636,23 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 	case "WHO":
 		return e.doWho(player)
 	case "SKILLS":
-		return &CommandResult{Messages: []string{"You have no trained skills yet."}}
+		var skillMsgs []string
+		skillMsgs = append(skillMsgs, "=== Your Skills ===")
+		hasSkills := false
+		for id := 0; id <= 35; id++ {
+			lvl := player.Skills[id]
+			if lvl > 0 {
+				name := SkillNames[id]
+				if name == "" { name = fmt.Sprintf("Skill #%d", id) }
+				skillMsgs = append(skillMsgs, fmt.Sprintf("  %s: rank %d", name, lvl))
+				hasSkills = true
+			}
+		}
+		if !hasSkills {
+			skillMsgs = append(skillMsgs, "  You have no trained skills yet.")
+		}
+		skillMsgs = append(skillMsgs, fmt.Sprintf("Build Points: %d", player.BuildPoints))
+		return &CommandResult{Messages: skillMsgs}
 	case "WEALTH":
 		g := player.Gold
 		s := player.Silver
