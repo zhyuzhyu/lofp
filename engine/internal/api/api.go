@@ -46,6 +46,8 @@ type Session struct {
 	lastCmdTime  time.Time // rate limiting: last command timestamp
 	cmdCount     int       // rate limiting: commands in current window
 	chatTimes    []time.Time // chat flood: timestamps of recent broadcasts
+	authFailures int        // auth attempt failures (disconnect after 3)
+	lastActivity time.Time  // idle timeout tracking
 }
 
 
@@ -394,7 +396,10 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
+	session.lastActivity = time.Now()
 	for {
+		// Idle timeout: 30 minutes with no messages → disconnect
+		conn.SetReadDeadline(time.Now().Add(30 * time.Minute))
 		var msg WSMessage
 		if err := conn.ReadJSON(&msg); err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
@@ -438,10 +443,15 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 			ctx := context.Background()
 			player, err := s.engine.ValidateAPIKey(ctx, keyMsg.Key)
 			if err != nil {
+				session.authFailures++
 				s.sendWSMessage(session, "auth_result", map[string]interface{}{
 					"success": false,
 					"error":   "invalid API key",
 				})
+				if session.authFailures >= 3 {
+					s.sendWSMessage(session, "error", map[string]interface{}{"message": "Too many failed auth attempts."})
+					return // disconnect
+				}
 				continue
 			}
 			session.Player = player
@@ -471,9 +481,15 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 			// Try to load existing character first (no validation needed for existing chars)
 			player, err := s.engine.LoadPlayer(ctx, create.FirstName, create.LastName)
 			if err != nil || player == nil {
-				// New character — validate name
+				// New character — validate name and limits
 				if err := engine.ValidateCharacterInput(create.FirstName, create.LastName, create.Race, create.Gender); err != nil {
 					s.sendWSMessage(session, "error", map[string]interface{}{"message": err.Error()})
+					continue
+				}
+				// Max 8 characters per account
+				existing, _ := s.engine.ListPlayersByAccount(ctx, accountID)
+				if len(existing) >= 8 {
+					s.sendWSMessage(session, "error", map[string]interface{}{"message": "You can have at most 8 characters (one per race)."})
 					continue
 				}
 				player = s.engine.CreateNewPlayer(ctx, create.FirstName, create.LastName, create.Race, create.Gender, accountID)
@@ -558,14 +574,16 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 				})
 				continue
 			}
-			// Command rate limiting: max 10 commands per second
+			// Track activity for idle timeout
+			session.lastActivity = time.Now()
+			// Command rate limiting: max 4 commands per second (human-equivalent)
 			now := time.Now()
 			if now.Sub(session.lastCmdTime) > time.Second {
 				session.cmdCount = 0
 				session.lastCmdTime = now
 			}
 			session.cmdCount++
-			if session.cmdCount > 10 {
+			if session.cmdCount > 4 {
 				s.sendWSResult(session, &engine.CommandResult{
 					Messages: []string{"[Slow down! Too many commands.]"},
 				})
@@ -1242,6 +1260,14 @@ func (s *Server) handleCreateCharacter(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(400)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	// Max 8 characters per account (one per race)
+	existing, _ := s.engine.ListPlayersByAccount(r.Context(), accountID)
+	if len(existing) >= 8 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(map[string]string{"error": "You can have at most 8 characters (one per race)."})
 		return
 	}
 	// Check unique first name

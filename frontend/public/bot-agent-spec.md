@@ -165,7 +165,7 @@ The `promptIndicators` string contains single-character status codes:
 
 ## Rate Limits
 
-- Maximum 10 commands per second
+- Maximum 4 commands per second
 - Maximum 5 broadcast messages (say/yell/act) per 10 seconds
 - Exceeding limits returns: `[Slow down! Too many commands.]`
 

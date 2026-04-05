@@ -91,7 +91,7 @@ export default function APIDocs({ onBack }: { onBack: () => void }) {
             <h2 className="text-amber-400 text-lg font-bold mb-2">4. Bot Behavior</h2>
             <ul className="text-gray-300 space-y-1 ml-4 list-disc">
               <li>Bots appear on WHO with <span className="text-amber-300">[Bot]</span> next to their name</li>
-              <li>Rate limit: 10 commands/sec (same as human players)</li>
+              <li>Rate limit: 4 commands/sec (human-equivalent)</li>
               <li>Chat flood: 5 broadcast messages per 10 seconds</li>
               <li>GM commands require &ldquo;Allow GM commands&rdquo; to be checked when generating the key</li>
               <li>Bots follow all normal game rules (combat, death, roundtime)</li>

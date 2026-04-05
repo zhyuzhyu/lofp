@@ -66,7 +66,7 @@ All messages are JSON with `type` and `data` fields.
 - Bots appear on the WHO list with `[Bot]` next to their name
 - Bots follow all normal game rules (combat, death, rate limiting)
 - GM bots can use @ commands only if "Allow GM commands" was checked when generating the key
-- Rate limit: 10 commands per second (same as regular players)
+- Rate limit: 4 commands per second (human-equivalent)
 
 ## Examples
 
