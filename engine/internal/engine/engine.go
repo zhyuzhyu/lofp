@@ -929,7 +929,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		player.PromptMode = false; e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"Prompt indicators off."}}
 	case "VERSION", "NEWS", "NOTES":
-		return &CommandResult{Messages: []string{"Legends of Future Past v10.0.3"}}
+		return &CommandResult{Messages: []string{"Legends of Future Past v10.0.4"}}
 	case "CREDITS":
 		return &CommandResult{Messages: []string{
 			"",
@@ -965,7 +965,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		}}
 	// === COMMUNICATION ===
 	case "THINK":
-		return e.doThink(player, args)
+		return e.doThink(player, input)
 	case "TELEPATHY":
 		if player.Race == RaceEphemeral { // Ephemeral - innate
 			player.TelepathyActive = !player.TelepathyActive
@@ -3629,16 +3629,13 @@ func (e *GameEngine) doSpellList(player *Player) *CommandResult {
 	return &CommandResult{Messages: msgs}
 }
 
-func (e *GameEngine) doThink(player *Player, args []string) *CommandResult {
-	if len(args) == 0 {
+func (e *GameEngine) doThink(player *Player, rawInput string) *CommandResult {
+	text := extractOriginalArgs(rawInput)
+	if text == "" {
 		return &CommandResult{Messages: []string{"Think what?"}}
 	}
 	if !player.TelepathyActive {
 		return &CommandResult{Messages: []string{"You don't have telepathic ability right now."}}
-	}
-	text := extractOriginalArgs(strings.Join(args, " "))
-	if text == "" {
-		text = strings.Join(args, " ")
 	}
 	return &CommandResult{
 		Messages:        []string{"You project your thoughts."},

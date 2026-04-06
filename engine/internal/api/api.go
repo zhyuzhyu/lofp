@@ -49,6 +49,7 @@ type Session struct {
 	cmdTimes     []time.Time // command rate: sliding window for 10/10s limit
 	authFailures int        // auth attempt failures (disconnect after 3)
 	lastActivity time.Time  // idle timeout tracking
+	quitSent     bool       // QUIT already broadcast departure
 }
 
 
@@ -466,6 +467,7 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 				"bot login via API key", player.RoomNumber, "")
 			s.broadcastGlobal(player.FirstName,
 				[]string{fmt.Sprintf("** %s has just entered the Realms.", player.FirstName)})
+			s.broadcastToRoom(player.RoomNumber, player.FirstName, []string{fmt.Sprintf("%s arrives.", player.FirstName)})
 			result := s.engine.EnterRoom(ctx, player)
 			s.sendWSResult(session, result)
 			s.sendWSMessage(session, "auth_result", map[string]interface{}{
@@ -532,6 +534,7 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 				fmt.Sprintf("%s (%s)", authName, authEmail), player.RoomNumber, "")
 			s.broadcastGlobal(player.FirstName,
 				[]string{fmt.Sprintf("** %s has just entered the Realms.", player.FirstName)})
+			s.broadcastToRoom(player.RoomNumber, player.FirstName, []string{fmt.Sprintf("%s arrives.", player.FirstName)})
 
 			result := s.engine.EnterRoom(ctx, player)
 			s.sendWSResult(session, result)
@@ -679,6 +682,9 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 			// Global broadcast (e.g. quit)
 			if len(result.GlobalBroadcast) > 0 {
 				s.broadcastGlobal(session.Player.FirstName, result.GlobalBroadcast)
+				if result.Quit {
+					session.quitSent = true
+				}
 			}
 			// GM broadcast
 			if len(result.GMBroadcast) > 0 {
@@ -710,12 +716,16 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Cleanup — global departure broadcast
+	// Cleanup — global departure broadcast (skip if QUIT already sent it)
 	if session.Player != nil {
 		s.gamelog.Log(gamelog.EventGameExit, session.Player.FullName(), session.Player.AccountID,
 			fmt.Sprintf("%s (%s)", authName, authEmail), session.Player.RoomNumber, "")
-		s.broadcastGlobal(session.Player.FirstName,
-			[]string{fmt.Sprintf("** %s has just left the Realms.", session.Player.FirstName)})
+		if !session.quitSent {
+			s.broadcastGlobal(session.Player.FirstName,
+				[]string{fmt.Sprintf("** %s has just left the Realms.", session.Player.FirstName)})
+		}
+		s.broadcastToRoom(session.Player.RoomNumber, session.Player.FirstName,
+			[]string{fmt.Sprintf("%s fades from the Realms.", session.Player.FirstName)})
 		if session.CaptureID != "" {
 			s.captures.Stop(context.Background(), session.CaptureID)
 			session.CaptureID = ""

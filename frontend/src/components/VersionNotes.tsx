@@ -9,6 +9,28 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v10.0.4 &mdash; April 6, 2026</h2>
+            <p className="text-gray-400 mb-3">Multiplayer polish, THINK fix, RECITE poetry, and room presence.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Multiplayer</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Players in a room see when someone logs in (&ldquo;X arrives.&rdquo;) or out (&ldquo;X fades from the Realms.&rdquo;)</li>
+                  <li>GIVE items and money no longer shows duplicate messages to recipient</li>
+                  <li>QUIT no longer broadcasts &ldquo;left the Realms&rdquo; twice</li>
+                  <li>@heal and other GM commands now affect the live session player immediately</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Commands</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>THINK preserves original text case and punctuation (was dropping first word)</li>
+                  <li>RECITE supports backslash (\) for line breaks in poetry and songs</li>
+                </ul>
+              </div>
+            </div>
+
             <h2 className="text-amber-400 text-lg font-bold mb-1">v10.0.3 &mdash; April 4, 2026</h2>
             <p className="text-gray-400 mb-3">Bot API, money giving, and currency system.</p>
 

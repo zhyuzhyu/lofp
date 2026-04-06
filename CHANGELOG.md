@@ -1,5 +1,21 @@
 # Changelog
 
+## v10.0.4 — 2026-04-06
+
+### Multiplayer
+- **Room arrival/departure on login/logout**: players in a room see "X arrives." when someone logs in and "X fades from the Realms." on logout
+- **Fix GIVE double-message**: recipient was seeing both room broadcast and whisper; now uses TargetName/TargetMsg (excluded from broadcast)
+- **Fix QUIT double-broadcast**: "left the Realms" no longer sent twice (once from QUIT command, once from disconnect cleanup)
+- **Fix @heal on live players**: GM commands now modify the live session player, not a stale DB copy
+
+### Commands
+- **Fix THINK preserving text**: was dropping the first word ("mmm..." in "think mmm... thesnia leaf"); now uses original input text with correct case
+- **RECITE line breaks**: backslash (`\`) creates multi-line poetry/song output
+
+### Security
+- **Two-tier rate limiting**: 4 commands/sec burst + 10 commands per 10 seconds sustained
+- **Max 8 characters per account**
+
 ## v10.0.3 — 2026-04-04
 
 ### Bot API (New Feature)
