@@ -1304,7 +1304,7 @@ func (e *GameEngine) doSearchMonster(ctx context.Context, player *Player, args [
 
 		displayName := FormatMonsterName(def, e.monAdjs)
 		var msgs []string
-		msgs = append(msgs, fmt.Sprintf("You search %s %s...", articleFor(displayName, def.Unique), displayName))
+		msgs = append(msgs, fmt.Sprintf("You search %s%s...", articleFor(displayName, def.Unique), displayName))
 
 		// Treasure based on monster's Treasure level
 		if def.Treasure > 0 {
