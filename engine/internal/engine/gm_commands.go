@@ -256,16 +256,18 @@ func (e *GameEngine) gmGo(ctx context.Context, player *Player, args []string) *C
 	e.SavePlayer(ctx, player)
 	result := e.doLook(player)
 	result.Messages = append([]string{fmt.Sprintf("Teleported to room %d.", num)}, result.Messages...)
-	// Broadcast exit/entry echoes
-	if player.ExitEcho != "" {
-		result.OldRoomMsg = []string{player.ExitEcho}
-	} else if !player.GMInvis {
-		result.OldRoomMsg = []string{fmt.Sprintf("%s vanishes.", player.FirstName)}
-	}
-	if player.EntryEcho != "" {
-		result.RoomBroadcast = []string{player.EntryEcho}
-	} else if !player.GMInvis {
-		result.RoomBroadcast = []string{fmt.Sprintf("%s appears.", player.FirstName)}
+	// Broadcast exit/entry echoes (invisible GMs are completely silent)
+	if !player.GMInvis {
+		if player.ExitEcho != "" {
+			result.OldRoomMsg = []string{player.ExitEcho}
+		} else {
+			result.OldRoomMsg = []string{fmt.Sprintf("%s vanishes.", player.FirstName)}
+		}
+		if player.EntryEcho != "" {
+			result.RoomBroadcast = []string{player.EntryEcho}
+		} else {
+			result.RoomBroadcast = []string{fmt.Sprintf("%s appears.", player.FirstName)}
+		}
 	}
 	result.OldRoom = oldRoom
 	return result

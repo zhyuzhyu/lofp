@@ -1395,16 +1395,18 @@ func (e *GameEngine) doMove(ctx context.Context, player *Player, dir string) *Co
 	e.SavePlayer(ctx, player)
 	result := e.doLook(player)
 	result.OldRoom = oldRoom
-	// Custom exit/entry echoes (from @exit/@entry GM commands)
-	if player.ExitEcho != "" {
-		result.OldRoomMsg = []string{player.ExitEcho}
-	} else {
-		result.OldRoomMsg = []string{fmt.Sprintf("%s goes %s.", player.FirstName, dirName)}
-	}
-	if player.EntryEcho != "" {
-		result.RoomBroadcast = []string{player.EntryEcho}
-	} else {
-		result.RoomBroadcast = []string{fmt.Sprintf("%s arrives.", player.FirstName)}
+	// Invisible GMs move silently — no exit/entry echoes
+	if !player.GMInvis {
+		if player.ExitEcho != "" {
+			result.OldRoomMsg = []string{player.ExitEcho}
+		} else {
+			result.OldRoomMsg = []string{fmt.Sprintf("%s goes %s.", player.FirstName, dirName)}
+		}
+		if player.EntryEcho != "" {
+			result.RoomBroadcast = []string{player.EntryEcho}
+		} else {
+			result.RoomBroadcast = []string{fmt.Sprintf("%s arrives.", player.FirstName)}
+		}
 	}
 
 	// Run IFENTRY scripts for the destination room
