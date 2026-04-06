@@ -2613,6 +2613,18 @@ func (e *GameEngine) doYell(player *Player, args []string, rawInput string) *Com
 	if player.SpeechAdverb != "" {
 		adverb = player.SpeechAdverb + " "
 	}
+
+	// Yell is heard in adjacent rooms too
+	room := e.rooms[player.RoomNumber]
+	if room != nil && e.roomBroadcast != nil {
+		adjacentMsg := fmt.Sprintf("You hear someone yell, \"%s\"", text)
+		for _, destNum := range room.Exits {
+			if destNum > 0 && destNum != player.RoomNumber {
+				e.roomBroadcast(destNum, []string{adjacentMsg})
+			}
+		}
+	}
+
 	return &CommandResult{
 		Messages:      []string{fmt.Sprintf("You %syell, \"%s\"", adverb, text)},
 		RoomBroadcast: []string{fmt.Sprintf("%s %syells, \"%s\"", player.FirstName, adverb, text)},

@@ -251,10 +251,23 @@ func (e *GameEngine) gmGo(ctx context.Context, player *Player, args []string) *C
 	if room == nil {
 		return &CommandResult{Messages: []string{fmt.Sprintf("Room %d does not exist.", num)}}
 	}
+	oldRoom := player.RoomNumber
 	player.RoomNumber = num
 	e.SavePlayer(ctx, player)
 	result := e.doLook(player)
 	result.Messages = append([]string{fmt.Sprintf("Teleported to room %d.", num)}, result.Messages...)
+	// Broadcast exit/entry echoes
+	if player.ExitEcho != "" {
+		result.OldRoomMsg = []string{player.ExitEcho}
+	} else if !player.GMInvis {
+		result.OldRoomMsg = []string{fmt.Sprintf("%s vanishes.", player.FirstName)}
+	}
+	if player.EntryEcho != "" {
+		result.RoomBroadcast = []string{player.EntryEcho}
+	} else if !player.GMInvis {
+		result.RoomBroadcast = []string{fmt.Sprintf("%s appears.", player.FirstName)}
+	}
+	result.OldRoom = oldRoom
 	return result
 }
 
@@ -1229,10 +1242,22 @@ func (e *GameEngine) gmGoPlr(ctx context.Context, player *Player, args []string)
 	if err != nil {
 		return &CommandResult{Messages: []string{err.Error()}}
 	}
+	oldRoom := player.RoomNumber
 	player.RoomNumber = target.RoomNumber
 	e.SavePlayer(ctx, player)
 	result := e.doLook(player)
 	result.Messages = append([]string{fmt.Sprintf("Teleported to %s (room %d).", target.FullName(), target.RoomNumber)}, result.Messages...)
+	if player.ExitEcho != "" {
+		result.OldRoomMsg = []string{player.ExitEcho}
+	} else if !player.GMInvis {
+		result.OldRoomMsg = []string{fmt.Sprintf("%s vanishes.", player.FirstName)}
+	}
+	if player.EntryEcho != "" {
+		result.RoomBroadcast = []string{player.EntryEcho}
+	} else if !player.GMInvis {
+		result.RoomBroadcast = []string{fmt.Sprintf("%s appears.", player.FirstName)}
+	}
+	result.OldRoom = oldRoom
 	return result
 }
 
