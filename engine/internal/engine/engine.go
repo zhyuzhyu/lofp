@@ -117,6 +117,7 @@ type GameEngine struct {
 	rooms           map[int]*gameworld.Room
 	monsters        map[int]*gameworld.MonsterDef
 	startRoom       int
+	departRoom      int // safe room for DEPART (bump room)
 	sessions        SessionProvider
 	onRoomChange    RoomChangeCallback
 	roomBroadcast      RoomBroadcastFunc
@@ -229,6 +230,7 @@ func NewGameEngine(db *mongo.Database, parsed *gameworld.ParsedData) *GameEngine
 		rooms:      make(map[int]*gameworld.Room),
 		monsters:   make(map[int]*gameworld.MonsterDef),
 		startRoom:  parsed.StartRoom,
+		departRoom: parsed.BumpRoom,
 	}
 	for i := range parsed.Nouns {
 		e.nouns[parsed.Nouns[i].ID] = parsed.Nouns[i].Name

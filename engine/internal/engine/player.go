@@ -172,9 +172,9 @@ type Player struct {
 	PromptMode   bool   `bson:"promptMode" json:"promptMode"`
 	SpeechAdverb string `bson:"speechAdverb,omitempty" json:"speechAdverb,omitempty"` // e.g. "gently"
 	IsGM         bool   `bson:"isGM" json:"isGM"`
-	GMHat      bool `bson:"-" json:"gmHat,omitempty"`      // visible as GM on WHO list (transient)
-	GMHidden   bool `bson:"-" json:"gmHidden,omitempty"`    // hidden from WHO list (transient)
-	GMInvis    bool `bson:"-" json:"gmInvis,omitempty"`     // invisible to players (transient)
+	GMHat      bool `bson:"gmHat,omitempty" json:"gmHat,omitempty"`        // visible as GM on WHO list
+	GMHidden   bool `bson:"gmHidden,omitempty" json:"gmHidden,omitempty"`  // hidden from WHO list
+	GMInvis    bool `bson:"gmInvis,omitempty" json:"gmInvis,omitempty"`    // invisible to players
 
 	CreatedAt time.Time  `bson:"createdAt" json:"createdAt"`
 	UpdatedAt time.Time  `bson:"updatedAt" json:"updatedAt"`

@@ -1047,7 +1047,12 @@ func (e *GameEngine) doDepart(player *Player) *CommandResult {
 		player.BodyPoints = 1
 	}
 
-	player.RoomNumber = e.startRoom
+	// Send to bump/depart room (201 City Gate), not start room (3950 tutorial)
+	if e.departRoom > 0 {
+		player.RoomNumber = e.departRoom
+	} else {
+		player.RoomNumber = e.startRoom
+	}
 
 	result := e.doLook(player)
 	result.Messages = append([]string{

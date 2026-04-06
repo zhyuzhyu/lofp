@@ -34,23 +34,29 @@ func (e *GameEngine) processGMCommand(ctx context.Context, player *Player, verb 
 		return e.gmExp(ctx, player, args)
 	case "@GM":
 		player.GMHat = true
+		e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"You don your Host Hat. You are now visible as a GM."}}
 	case "@RFLAG":
 		player.GMHat = false
+		e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"You remove your Host Hat."}}
 	case "@HIDE":
 		player.GMHidden = true
+		e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"You are now hidden from the WHO list."}}
 	case "@UNHIDE":
 		player.GMHidden = false
+		e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"You are now visible on the WHO list."}}
 	case "@INVIS":
 		player.GMInvis = true
 		player.Hidden = true
+		e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"You fade from sight."}}
 	case "@VIS":
 		player.GMInvis = false
 		player.Hidden = false
+		e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"You become visible again."}}
 	case "@SND":
 		if len(args) == 0 {
