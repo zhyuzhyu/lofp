@@ -1568,6 +1568,21 @@ func (e *GameEngine) doLookAt(player *Player, args []string) *CommandResult {
 					if dest.Description != "" {
 						msgs = append(msgs, descriptionToMessages(dest.Description)...)
 					}
+					// Show players in that room
+					if e.sessions != nil {
+						var playersHere []string
+						for _, p := range e.sessions.OnlinePlayers() {
+							if p.RoomNumber == destNum && !p.Hidden && !p.Invisible && !p.GMInvis {
+								playersHere = append(playersHere, p.FirstName)
+							}
+						}
+						if len(playersHere) > 0 {
+							msgs = append(msgs, fmt.Sprintf("You see %s.", strings.Join(playersHere, ", ")))
+						}
+					}
+					// Show monsters
+					monLines := e.MonsterLookLines(destNum)
+					msgs = append(msgs, monLines...)
 					return &CommandResult{Messages: msgs}
 				}
 			}

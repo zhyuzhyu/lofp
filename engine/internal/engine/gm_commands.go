@@ -79,7 +79,7 @@ func (e *GameEngine) processGMCommand(ctx context.Context, player *Player, verb 
 	case "@SEDATE":
 		return &CommandResult{Messages: []string{"Monster sedated."}}
 	case "@ZAP":
-		return &CommandResult{Messages: []string{"Monster destroyed."}}
+		return e.gmZap(player, args)
 	case "@MLIST":
 		return e.gmMList()
 	case "@FIND":
@@ -669,6 +669,39 @@ func (e *GameEngine) gmSetEntryExit(ctx context.Context, player *Player, args []
 	}
 	e.SavePlayer(ctx, player)
 	return &CommandResult{Messages: []string{fmt.Sprintf("%s echo set: %s", strings.Title(which), text)}}
+}
+
+func (e *GameEngine) gmZap(player *Player, args []string) *CommandResult {
+	if len(args) == 0 {
+		return &CommandResult{Messages: []string{"Usage: @zap <monster name>"}}
+	}
+	target := strings.ToLower(strings.Join(args, " "))
+	if e.monsterMgr == nil {
+		return &CommandResult{Messages: []string{"No monsters."}}
+	}
+	inst, def := e.findMonsterInRoom(player, target)
+	if inst == nil {
+		return &CommandResult{Messages: []string{fmt.Sprintf("No monster matching '%s' found in this room.", target)}}
+	}
+	name := FormatMonsterName(def, e.monAdjs)
+	// Kill and remove from room tracking
+	e.monsterMgr.mu.Lock()
+	for i := range e.monsterMgr.instances {
+		if e.monsterMgr.instances[i].ID == inst.ID {
+			e.monsterMgr.instances[i].Alive = false
+			// Remove from room index
+			roomIndices := e.monsterMgr.monstersByRoom[inst.RoomNumber]
+			for j, idx := range roomIndices {
+				if idx == i {
+					e.monsterMgr.monstersByRoom[inst.RoomNumber] = append(roomIndices[:j], roomIndices[j+1:]...)
+					break
+				}
+			}
+			break
+		}
+	}
+	e.monsterMgr.mu.Unlock()
+	return &CommandResult{Messages: []string{fmt.Sprintf("Destroyed %s.", name)}}
 }
 
 func (e *GameEngine) gmVerbs() *CommandResult {
