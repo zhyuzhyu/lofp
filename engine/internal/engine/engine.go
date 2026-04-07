@@ -1795,6 +1795,16 @@ func (e *GameEngine) examinePlayer(observer *Player, target *Player) *CommandRes
 		msgs = append(msgs, target.DescLine3)
 	}
 
+	heOrShe := "He"
+	heOrSheLC := "him"
+	if target.Gender == 1 {
+		heOrShe = "She"
+		heOrSheLC = "her"
+	}
+	if isSelf {
+		heOrSheLC = "you"
+	}
+
 	// Health description
 	healthPct := float64(target.BodyPoints) / float64(target.MaxBodyPoints) * 100
 	if isSelf {
@@ -1813,8 +1823,6 @@ func (e *GameEngine) examinePlayer(observer *Player, target *Player) *CommandRes
 			msgs = append(msgs, "You are dead.")
 		}
 	} else {
-		heOrShe := "He"
-		if target.Gender == 1 { heOrShe = "She" }
 		switch {
 		case healthPct >= 100:
 			msgs = append(msgs, fmt.Sprintf("%s appears to be in perfect health.", heOrShe))
@@ -1841,9 +1849,35 @@ func (e *GameEngine) examinePlayer(observer *Player, target *Player) *CommandRes
 		msgs = append(msgs, fmt.Sprintf("%s kneeling.", pronoun))
 	}
 
-	// Visible conditions
+	// Visible conditions and effects
 	if target.Bleeding {
 		msgs = append(msgs, fmt.Sprintf("%s bleeding.", pronoun))
+	}
+	if target.Stunned {
+		msgs = append(msgs, fmt.Sprintf("%s stunned.", pronoun))
+	}
+	if target.Poisoned {
+		msgs = append(msgs, fmt.Sprintf("%s looks poisoned.", isSelfOr(isSelf, "You look", heOrShe)))
+	}
+	if target.Diseased {
+		msgs = append(msgs, fmt.Sprintf("%s looks sickly.", isSelfOr(isSelf, "You look", heOrShe)))
+	}
+	if target.Immobilized {
+		msgs = append(msgs, fmt.Sprintf("%s rooted to the spot.", pronoun))
+	}
+
+	// Active spell/psi effects
+	if target.DefenseBonus > 0 {
+		msgs = append(msgs, fmt.Sprintf("A shimmering magical aura surrounds %s.", isSelfOr(isSelf, "you", heOrSheLC)))
+	}
+	if target.CanFly && target.Race != RaceDrakin {
+		msgs = append(msgs, fmt.Sprintf("%s hovering in the air.", pronoun))
+	}
+	if target.Invisible {
+		// Only visible to self or GMs
+		if isSelf {
+			msgs = append(msgs, "You are invisible.")
+		}
 	}
 
 	// Equipment
@@ -4462,6 +4496,11 @@ func (e *GameEngine) ValidateAPIKey(ctx context.Context, key string) (*Player, e
 	}
 	player.IsBot = true
 	return &player, nil
+}
+
+func isSelfOr(isSelf bool, selfText, otherText string) string {
+	if isSelf { return selfText }
+	return otherText
 }
 
 func genderName(g int) string {
