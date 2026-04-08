@@ -7,6 +7,18 @@ import (
 
 var gameEpoch = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
+// broadcastOutdoor sends a message to all players in outdoor rooms.
+func (e *GameEngine) broadcastOutdoor(msg string) {
+	if e.localRoomBroadcast == nil {
+		return
+	}
+	for num, room := range e.rooms {
+		if isOutdoorTerrain(room.Terrain) {
+			e.localRoomBroadcast(num, []string{msg})
+		}
+	}
+}
+
 var MonthNames = []string{
 	"", "Abra", "Brama", "Manta", "Dretmar", "Alabea", "Phobrus",
 	"Melma", "Banamea", "Olum", "Mixus", "Farnum", "Folster", "Feast",
@@ -58,6 +70,19 @@ func (e *GameEngine) StartTimeCycle() {
 						e.Events.Publish("time", "Night falls across the Shattered Realms.")
 					} else {
 						e.Events.Publish("time", "Dawn breaks across the Shattered Realms.")
+					}
+				}
+				// Broadcast time-of-day transitions to outdoor players
+				if e.localRoomBroadcast != nil {
+					switch hour {
+					case 5:
+						e.broadcastOutdoor("The sun begins to rise in the east.")
+					case 6:
+						e.broadcastOutdoor("The sun rises in the east.")
+					case 18:
+						e.broadcastOutdoor("The sun begins to set in the west.")
+					case 19:
+						e.broadcastOutdoor("The sun sets in the west.")
 					}
 				}
 				lastHour = hour

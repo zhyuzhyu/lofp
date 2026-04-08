@@ -125,6 +125,7 @@ func main() {
 	srv := api.NewServer(ge, parsed, authSvc, emailSvc, gl, h, cs, cfg.Server.FrontendURL)
 	h.Start()
 	ge.StartTimeCycle()
+	ge.StartWeatherCycle()
 	ge.StartCEventLoop()
 	ge.StartMonsterLoop()
 

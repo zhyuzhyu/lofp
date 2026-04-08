@@ -259,6 +259,7 @@ func FormatMonsterName(def *gameworld.MonsterDef, monAdjs map[int]string) string
 }
 
 // MonsterLookLines returns the lines to append to a room look showing monsters.
+// Condenses multiple monsters into a single "You also see" line.
 func (e *GameEngine) MonsterLookLines(roomNum int) []string {
 	if e.monsterMgr == nil {
 		return nil
@@ -267,21 +268,30 @@ func (e *GameEngine) MonsterLookLines(roomNum int) []string {
 	if len(monsters) == 0 {
 		return nil
 	}
-	var lines []string
+	var names []string
 	for _, inst := range monsters {
 		def := e.monsters[inst.DefNumber]
 		if def == nil {
 			continue
 		}
 		name := FormatMonsterName(def, e.monAdjs)
-		deadSuffix := ""
 		if !inst.Alive {
-			deadSuffix = " (dead)"
+			name += " (dead)"
 		}
 		article := articleFor(name, def.Unique)
-		lines = append(lines, fmt.Sprintf("You also see %s%s%s.", article, name, deadSuffix))
+		names = append(names, article+name)
 	}
-	return lines
+	if len(names) == 0 {
+		return nil
+	}
+	// Join with commas and "and": "a priest, a trader and a merchant"
+	var joined string
+	if len(names) == 1 {
+		joined = names[0]
+	} else {
+		joined = strings.Join(names[:len(names)-1], ", ") + " and " + names[len(names)-1]
+	}
+	return []string{"You also see " + joined + "."}
 }
 
 // directionNames maps exit keys to direction words for monster movement text.
