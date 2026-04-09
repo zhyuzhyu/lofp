@@ -128,6 +128,7 @@ func main() {
 	h.Start()
 	ge.StartTimeCycle()
 	ge.StartWeatherCycle()
+	ge.StartRegenCycle()
 	ge.StartCEventLoop()
 	ge.StartMonsterLoop()
 

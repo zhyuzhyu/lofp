@@ -1,5 +1,43 @@
 # Changelog
 
+## v11.2.2 — 2026-04-09
+
+### Game Calendar & Seasons
+- **In-game time** runs at 6:1 ratio (4 real hours = 1 game day)
+- **Full calendar**: 12 named months, 28 days each, with tracked years
+- **Seasons** follow game calendar: Spring (months 1-3), Summer (4-6), Autumn (7-9), Winter (10-12)
+- **Hot-swap seasonal MLISTs**: monster spawns change with the seasons
+- **Season change broadcasts** to outdoor players with atmospheric messages
+- **Game time persistence**: calendar state saved to MongoDB, survives restarts
+- **TIME command** shows date, season, and dual moon phases (Great Moon + Phulcrus)
+
+### Passive Regeneration
+- **Fatigue** regenerates based on Constitution (/20 per tick, min 1)
+- **Mana** regenerates based on Willpower + Empathy (/30 per tick, min 1)
+- **PSI** regenerates based on Willpower (/20 per tick, min 1)
+- **Body Points** regenerate slowly based on Constitution (/50 per tick, min 1)
+- **Position multipliers**: laying 3x, sitting 2x, kneeling 1.5x, standing/flying 1x
+- Ticks every real minute for all online players
+
+## v11.2.1 — 2026-04-08
+
+### Player Manual
+- Full original Player Manual (V3.1, 1994) as in-game modal overlay
+- Sticky table of contents with 29 sections
+- Accessible from top nav and footer
+
+### SET Command & Settings
+- SET command: view/toggle all display settings
+- Full/Brief room descriptions, prompt mode
+- Filter logon/logoff/disconnect, RPbrief, Battlebrief, Actionbrief, Actbrief
+
+### World
+- Dynamic weather system with regional transitions
+- Sunrise/sunset broadcasts to outdoor rooms
+- PSI command: list disciplines, activate by number, toggle maintained powers
+- Fixed monster spawning for seasonal scripts
+- Fixed height/weight assignment on character creation
+
 ## v10.0.5 — 2026-04-06
 
 ### GM Tools

@@ -261,6 +261,9 @@ func NewGameEngine(db *mongo.Database, parsed *gameworld.ParsedData) *GameEngine
 	// Initialize event bus for admin monitoring
 	e.Events = NewEventBus()
 
+	// Load persisted game time from MongoDB (must happen before season determination)
+	LoadGameTime(db)
+
 	// Initialize monster manager with season-aware MLIST selection
 	e.monsterMgr = newMonsterManager()
 	e.baseMonsterLists = parsed.MonsterLists

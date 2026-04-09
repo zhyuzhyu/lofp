@@ -9,6 +9,34 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v11.2.2 &mdash; April 9, 2026</h2>
+            <p className="text-gray-400 mb-3">Game-time calendar, passive regeneration, seasonal world.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Game Calendar &amp; Seasons</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>In-game time now runs at 6:1 ratio (4 real hours = 1 game day)</li>
+                  <li>Full calendar: 12 months, 28 days each, with named months</li>
+                  <li>Seasons follow the game calendar: Spring, Summer, Autumn, Winter</li>
+                  <li>Season changes trigger world-wide broadcasts and hot-swap monster spawns</li>
+                  <li>Game time persists to MongoDB &mdash; calendar survives server restarts</li>
+                  <li>TIME command shows date, season, and moon phases</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Passive Regeneration</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Fatigue, Mana, PSI, and Body Points now regenerate passively over time</li>
+                  <li>Regeneration rate based on character stats (Constitution, Willpower, Empathy)</li>
+                  <li>Position affects regen speed: laying (3x) &gt; sitting (2x) &gt; kneeling (1.5x) &gt; standing (1x)</li>
+                  <li>Ticks every real minute for all online players</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-amber-400 text-lg font-bold mb-1">v11.2.1 &mdash; April 8, 2026</h2>
             <p className="text-gray-400 mb-3">Player manual, SET command, weather, monster spawning fix, combat fixes.</p>
 
