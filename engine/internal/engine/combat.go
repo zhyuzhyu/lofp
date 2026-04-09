@@ -76,7 +76,7 @@ func buildPointsForLevel(level int) int {
 func recalcBuildPoints(player *Player) (leveledUp bool) {
 	// Calculate total BP earned from total XP
 	xpRemaining := player.Experience
-	bp := 20 // starting build points
+	bp := 30 // starting build points (matches CreateNewPlayer)
 	lvl := 1
 
 	for {

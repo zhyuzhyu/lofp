@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jonradoff/lofp/internal/gameworld"
 )
@@ -90,9 +91,26 @@ func ParseConfig(configPath string) (*ParseResult, error) {
 				fmt.Printf("Warning: could not parse %s: %v\n", fields[1], err)
 			}
 		case "ASCRIPT", "WSCRIPT", "SSCRIPT", "PSCRIPT":
-			// Seasonal scripts override base definitions for their season.
-			// For now, skip them and use the base SCRIPT definitions.
-			// TODO: implement seasonal rotation based on in-game calendar.
+			// Load seasonal scripts based on current real-world season.
+			// Spring=Mar-May, Summer=Jun-Aug, Autumn=Sep-Nov, Winter=Dec-Feb
+			month := time.Now().Month()
+			var currentSeason string
+			switch {
+			case month >= 3 && month <= 5:
+				currentSeason = "PSCRIPT" // spring
+			case month >= 6 && month <= 8:
+				currentSeason = "SSCRIPT" // summer
+			case month >= 9 && month <= 11:
+				currentSeason = "ASCRIPT" // autumn
+			default:
+				currentSeason = "WSCRIPT" // winter
+			}
+			if cmd == currentSeason {
+				scriptFile := resolveFileCaseInsensitive(filepath.Join(dir, fields[1]))
+				if err := parseScriptFile(scriptFile, result); err != nil {
+					fmt.Printf("Warning: could not parse seasonal %s: %v\n", fields[1], err)
+				}
+			}
 		}
 	}
 
