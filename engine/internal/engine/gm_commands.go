@@ -1543,6 +1543,11 @@ func (e *GameEngine) resolvePlayerArg(ctx context.Context, args []string) (*Play
 	return e.resolvePlayerByName(ctx, args[0])
 }
 
+// ResolvePlayerByName looks up a player by first name (public for API layer).
+func (e *GameEngine) ResolvePlayerByName(ctx context.Context, name string) (*Player, error) {
+	return e.resolvePlayerByName(ctx, name)
+}
+
 // resolvePlayerByName looks up a player by first name.
 func (e *GameEngine) resolvePlayerByName(ctx context.Context, name string) (*Player, error) {
 	if e.db == nil {

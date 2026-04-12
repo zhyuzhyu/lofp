@@ -9,6 +9,28 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v11.4 &mdash; April 12, 2026</h2>
+            <p className="text-gray-400 mb-3">GM Script Editor &mdash; hot-load scripts without server restart.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">GM Script Editor</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>New <strong>GM</strong> nav button (visible when playing a GM character)</li>
+                  <li>Upload, edit, and manage <code className="text-amber-300">.scr</code> scripts via a web-based text editor</li>
+                  <li>Scripts are parsed, validated, and hot-loaded into the running engine &mdash; no restart needed</li>
+                  <li>Scripts stored in MongoDB with priority ordering (higher priority loads first)</li>
+                  <li>Version history: last 10 versions preserved with one-click restore</li>
+                  <li>Shared GM filespace &mdash; all GMs see and can edit all uploaded scripts</li>
+                  <li>Audit trail: who uploaded what, when</li>
+                  <li>Upload <code className="text-amber-300">.scr</code> files from disk or type directly in the editor</li>
+                  <li>Script size limit: 262 KB</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-amber-400 text-lg font-bold mb-1">v11.3 &mdash; April 11, 2026</h2>
             <p className="text-gray-400 mb-3">Mobile improvements, GM server banner, announcement fixes, weather descriptions.</p>
 

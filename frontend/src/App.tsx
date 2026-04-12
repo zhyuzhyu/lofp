@@ -3,6 +3,7 @@ import Terminal from './components/Terminal'
 import CharacterCreate from './components/CharacterCreate'
 import MainMenu from './components/MainMenu'
 import AdminPanel from './components/AdminPanel'
+import GMPanel from './components/GMPanel'
 import VersionNotes from './components/VersionNotes'
 import APIDocs from './components/APIDocs'
 import CaptureModal from './components/CaptureModal'
@@ -12,7 +13,7 @@ import ResetPassword from './components/ResetPassword'
 import AccountModal from './components/AccountModal'
 import Manual from './components/Manual'
 
-type View = 'menu' | 'create' | 'play' | 'admin' | 'version' | 'capture_view' | 'api_docs' | 'verify_email' | 'reset_password'
+type View = 'menu' | 'create' | 'play' | 'admin' | 'gm' | 'version' | 'capture_view' | 'api_docs' | 'verify_email' | 'reset_password'
 
 // Check if URL points to a specific view
 function initialViewFromURL(): View {
@@ -30,6 +31,7 @@ export interface Character {
   lastName: string
   race: number
   gender: number
+  isGM?: boolean
 }
 
 export interface AuthUser {
@@ -249,6 +251,14 @@ function App() {
                 Admin
               </button>
             )}
+            {character?.isGM && (
+              <button
+                onClick={() => setView('gm')}
+                className={`hidden sm:block px-2 sm:px-3 py-1 text-xs sm:text-sm rounded font-mono min-h-[36px] ${view === 'gm' ? 'bg-amber-700 text-white' : 'text-gray-400 hover:text-white'}`}
+              >
+                GM
+              </button>
+            )}
             {character && view === 'play' && (
               <button
                 onClick={() => setShowCaptureModal(true)}
@@ -302,6 +312,7 @@ function App() {
           {view === 'create' && <CharacterCreate onCreated={handleCharacterCreated} onOpenManual={() => setShowManual(true)} />}
           {view === 'play' && character && <Terminal character={character} onQuit={() => setView('menu')} wsRefOut={wsRef} onCaptureStatus={(recording, _id) => { setCaptureRecording(recording) }} />}
           {view === 'admin' && <AdminPanel />}
+          {view === 'gm' && character && <GMPanel characterName={character.firstName} />}
           {view === 'version' && <VersionNotes onBack={() => setView('menu')} />}
           {view === 'api_docs' && <APIDocs onBack={() => setView('menu')} />}
           {view === 'capture_view' && <CaptureViewer captureId={viewCaptureId} onBack={() => setView('play')} />}

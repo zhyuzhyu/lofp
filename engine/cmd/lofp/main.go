@@ -91,6 +91,25 @@ func main() {
 	rand.Read(machineBytes)
 	machineID := hex.EncodeToString(machineBytes)
 
+	// Wire up script parser callback for hot-reload (avoids circular import)
+	engine.ScriptParser = func(content, filename string) (*gameworld.ParsedData, error) {
+		r, err := scriptparser.ParseScriptContent(content, filename)
+		if err != nil {
+			return nil, err
+		}
+		return &gameworld.ParsedData{
+			Rooms:       r.Rooms,
+			Items:       r.Items,
+			Monsters:    r.Monsters,
+			Nouns:       r.Nouns,
+			Adjectives:  r.Adjectives,
+			MonsterAdjs: r.MonsterAdjs,
+			Variables:   r.Variables,
+			CEvents:     r.CEvents,
+			ForageDefs:  r.ForageDefs,
+		}, nil
+	}
+
 	// Create game engine
 	ge := engine.NewGameEngine(db, parsed)
 
@@ -126,6 +145,7 @@ func main() {
 	// Create API server
 	srv := api.NewServer(ge, parsed, authSvc, emailSvc, gl, h, cs, cfg.Server.FrontendURL)
 	ge.LoadBanner()
+	ge.LoadGMScripts()
 	h.Start()
 	ge.StartTimeCycle()
 	ge.StartWeatherCycle()

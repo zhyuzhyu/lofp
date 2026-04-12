@@ -395,6 +395,7 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
                         onSelectCharacter({
                           firstName: p.firstName, lastName: p.lastName,
                           race: p.race, gender: p.gender,
+                          isGM: p.isGM,
                         })
                       }}
                       className={`w-full flex items-center justify-between bg-[#111] border border-[#333] rounded-lg px-5 py-4 text-left transition-colors group ${user?.account?.emailVerified === false ? 'opacity-50 cursor-not-allowed' : 'hover:border-amber-600 cursor-pointer'}`}
@@ -455,7 +456,7 @@ export default function MainMenu({ onNewCharacter, onSelectCharacter, onVersionN
         )}
         <div className="mt-6 text-center">
           <button onClick={onVersionNotes} className="text-gray-600 hover:text-amber-400 text-xs font-mono">
-            Version 11.3 &mdash; Version Notes
+            Version 11.4 &mdash; Version Notes
           </button>
           <span className="text-gray-700 mx-2">|</span>
           <a href="/manual" className="text-gray-600 hover:text-amber-400 text-xs font-mono">

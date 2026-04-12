@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -322,6 +323,13 @@ func (s *Server) setupRoutes() {
 	api.HandleFunc("/monsters/{number}", s.handleGetMonster).Methods("GET")
 	api.HandleFunc("/nouns", s.handleListNouns).Methods("GET")
 	api.HandleFunc("/adjectives", s.handleListAdjectives).Methods("GET")
+
+	// GM endpoints (require GM character)
+	api.HandleFunc("/gm/scripts", s.handleListGMScripts).Methods("GET")
+	api.HandleFunc("/gm/scripts/{filename}", s.handleGetGMScript).Methods("GET")
+	api.HandleFunc("/gm/scripts/{filename}", s.handleSaveGMScript).Methods("POST")
+	api.HandleFunc("/gm/scripts/{filename}", s.handleDeleteGMScript).Methods("DELETE")
+	api.HandleFunc("/gm/scripts/{filename}/restore/{index}", s.handleRestoreGMScript).Methods("POST")
 
 	// Admin bootstrap (only works if no admins exist yet)
 	api.HandleFunc("/admin/bootstrap", s.handleBootstrapAdmin).Methods("POST")
@@ -1960,6 +1968,231 @@ func (s *Server) requireAdmin(w http.ResponseWriter, r *http.Request) *auth.Acco
 		return nil
 	}
 	return account
+}
+
+// requireGM checks if the request comes from an account that owns a GM character.
+// The character name is passed via the X-Character header.
+func (s *Server) requireGM(w http.ResponseWriter, r *http.Request) *auth.Account {
+	accountID := s.getAccountID(r)
+	if accountID == "" {
+		http.Error(w, "unauthorized", 401)
+		return nil
+	}
+	account, err := s.auth.GetAccount(r.Context(), accountID)
+	if err != nil {
+		http.Error(w, "unauthorized", 401)
+		return nil
+	}
+	// Admin accounts also have GM access
+	if account.IsAdmin {
+		return account
+	}
+	charName := r.Header.Get("X-Character")
+	if charName == "" {
+		http.Error(w, "X-Character header required", 400)
+		return nil
+	}
+	player, err := s.engine.ResolvePlayerByName(r.Context(), charName)
+	if err != nil || player.AccountID != accountID || !player.IsGM {
+		http.Error(w, "forbidden", 403)
+		return nil
+	}
+	return account
+}
+
+// --- GM Script endpoints ---
+
+func (s *Server) handleListGMScripts(w http.ResponseWriter, r *http.Request) {
+	if s.requireGM(w, r) == nil {
+		return
+	}
+	scripts, err := s.engine.ListGMScripts(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(scripts)
+}
+
+func (s *Server) handleGetGMScript(w http.ResponseWriter, r *http.Request) {
+	if s.requireGM(w, r) == nil {
+		return
+	}
+	filename := mux.Vars(r)["filename"]
+	script, err := s.engine.GetGMScript(r.Context(), filename)
+	if err != nil {
+		http.Error(w, "script not found", 404)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(script)
+}
+
+func (s *Server) handleSaveGMScript(w http.ResponseWriter, r *http.Request) {
+	account := s.requireGM(w, r)
+	if account == nil {
+		return
+	}
+	filename := mux.Vars(r)["filename"]
+	var req struct {
+		Name     string `json:"name"`
+		Content  string `json:"content"`
+		Priority int    `json:"priority"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", 400)
+		return
+	}
+	if req.Content == "" {
+		http.Error(w, "content is required", 400)
+		return
+	}
+	if len(req.Content) > engine.MaxScriptSize {
+		http.Error(w, fmt.Sprintf("script too large (max %d bytes)", engine.MaxScriptSize), 400)
+		return
+	}
+	if req.Name == "" {
+		req.Name = filename
+	}
+
+	// Determine uploader name from X-Character header or account name
+	uploaderName := r.Header.Get("X-Character")
+	if uploaderName == "" {
+		uploaderName = account.Name
+	}
+
+	// Parse and validate the script first
+	if engine.ScriptParser == nil {
+		http.Error(w, "script parser not available", 500)
+		return
+	}
+	parsedData, err := engine.ScriptParser(req.Content, filename)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("parse error: %v", err)})
+		return
+	}
+
+	// Apply to running engine
+	stats := s.engine.ApplyParsedData(parsedData)
+
+	// Save to MongoDB
+	script := &engine.GMScript{
+		Filename:            filename,
+		Name:                req.Name,
+		Content:             req.Content,
+		Priority:            req.Priority,
+		Size:                len(req.Content),
+		UploadedBy:          uploaderName,
+		UploadedByAccountID: account.ID.Hex(),
+		UploadedAt:          time.Now(),
+		ParseStats:          stats,
+	}
+	if err := s.engine.SaveGMScript(r.Context(), script); err != nil {
+		http.Error(w, fmt.Sprintf("save failed: %v", err), 500)
+		return
+	}
+
+	s.gamelog.Log(gamelog.EventGMCommand, uploaderName, account.ID.Hex(), "",
+		0, fmt.Sprintf("Uploaded script %s: %d rooms, %d items, %d monsters", filename, stats.Rooms, stats.Items, stats.Monsters))
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":  "Script saved and applied",
+		"filename": filename,
+		"stats":    stats,
+	})
+}
+
+func (s *Server) handleDeleteGMScript(w http.ResponseWriter, r *http.Request) {
+	account := s.requireGM(w, r)
+	if account == nil {
+		return
+	}
+	filename := mux.Vars(r)["filename"]
+	if err := s.engine.DeleteGMScript(r.Context(), filename); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	uploaderName := r.Header.Get("X-Character")
+	if uploaderName == "" {
+		uploaderName = account.Name
+	}
+	s.gamelog.Log(gamelog.EventGMCommand, uploaderName, account.ID.Hex(), "",
+		0, fmt.Sprintf("Deleted script %s", filename))
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": "deleted"})
+}
+
+func (s *Server) handleRestoreGMScript(w http.ResponseWriter, r *http.Request) {
+	account := s.requireGM(w, r)
+	if account == nil {
+		return
+	}
+	filename := mux.Vars(r)["filename"]
+	vars := mux.Vars(r)
+	idx, err := strconv.Atoi(vars["index"])
+	if err != nil || idx < 0 {
+		http.Error(w, "invalid history index", 400)
+		return
+	}
+
+	script, err := s.engine.GetGMScript(r.Context(), filename)
+	if err != nil {
+		http.Error(w, "script not found", 404)
+		return
+	}
+	if idx >= len(script.History) {
+		http.Error(w, "history index out of range", 400)
+		return
+	}
+
+	restoredContent := script.History[idx].Content
+	uploaderName := r.Header.Get("X-Character")
+	if uploaderName == "" {
+		uploaderName = account.Name
+	}
+
+	// Parse and apply
+	if engine.ScriptParser == nil {
+		http.Error(w, "script parser not available", 500)
+		return
+	}
+	parsedData, parseErr := engine.ScriptParser(restoredContent, filename)
+	if parseErr != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("parse error on restore: %v", parseErr)})
+		return
+	}
+	stats := s.engine.ApplyParsedData(parsedData)
+
+	// Save as new version
+	updated := &engine.GMScript{
+		Filename:            filename,
+		Name:                script.Name,
+		Content:             restoredContent,
+		Priority:            script.Priority,
+		Size:                len(restoredContent),
+		UploadedBy:          uploaderName,
+		UploadedByAccountID: account.ID.Hex(),
+		UploadedAt:          time.Now(),
+		ParseStats:          stats,
+	}
+	if err := s.engine.SaveGMScript(r.Context(), updated); err != nil {
+		http.Error(w, fmt.Sprintf("save failed: %v", err), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":  "Script restored and applied",
+		"filename": filename,
+		"stats":    stats,
+	})
 }
 
 func (s *Server) handleListAccounts(w http.ResponseWriter, r *http.Request) {

@@ -195,6 +195,21 @@ func parseScriptFile(path string, result *ParseResult) error {
 	return nil
 }
 
+// ParseScriptContent parses script content from a string (for hot-reload from MongoDB).
+// Returns a fresh ParseResult with all entities found in the content.
+func ParseScriptContent(content string, filename string) (*ParseResult, error) {
+	result := &ParseResult{}
+	lines := strings.Split(content, "\n")
+	p := &fileParser{
+		lines:    lines,
+		pos:      0,
+		filename: filename,
+		result:   result,
+	}
+	p.parse()
+	return result, nil
+}
+
 type fileParser struct {
 	lines    []string
 	pos      int

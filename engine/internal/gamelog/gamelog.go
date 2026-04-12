@@ -22,6 +22,7 @@ const (
 	EventLevelUp         EventType = "level_up"
 	EventGMGrant         EventType = "gm_grant"
 	EventGMRevoke        EventType = "gm_revoke"
+	EventGMCommand       EventType = "gm_command"        // GM action (script upload, etc.)
 	EventReport          EventType = "report"            // Player REPORT command
 )
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## v11.4 — 2026-04-12
+
+### GM Script Editor
+- New "GM" nav button visible when playing a GM character
+- Web-based script editor: upload, edit, and manage `.scr` files
+- Scripts parsed, validated, and hot-loaded into running engine without restart
+- Stored in MongoDB with priority ordering (higher priority loads first)
+- Version history: last 10 versions with one-click restore
+- Shared GM filespace with audit trail (who uploaded what, when)
+- Upload `.scr` files from disk or edit directly in the text editor
+- Script size limit: 262 KB (110% of largest disk script)
+
 ## v11.3 — 2026-04-11
 
 ### Mobile UI
