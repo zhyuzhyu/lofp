@@ -129,6 +129,11 @@ export default function Terminal({ character, onQuit, wsRefOut, onCaptureStatus 
 
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight)
+    // Re-assert focus after every render that adds lines — Chrome on Windows/Android
+    // drops focus when the DOM updates with new output. This runs after the re-render.
+    if (!isTouchDevice()) {
+      inputRef.current?.focus()
+    }
   }, [lines])
 
   // Only auto-focus on non-touch devices — on mobile this would open the keyboard immediately
@@ -161,13 +166,7 @@ export default function Terminal({ character, onQuit, wsRefOut, onCaptureStatus 
     }))
     setInput('')
     // On touch devices, blur after send so iOS zooms back out
-    // On non-touch devices, explicitly refocus — some Chrome builds (Windows, Android)
-    // lose focus during the React re-render when new output lines are added
-    if (isTouchDevice()) {
-      inputRef.current?.blur()
-    } else {
-      inputRef.current?.focus()
-    }
+    if (isTouchDevice()) inputRef.current?.blur()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
