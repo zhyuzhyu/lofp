@@ -282,6 +282,9 @@ func (e *GameEngine) doTend(ctx context.Context, player *Player, args []string) 
 	}
 
 	e.SavePlayer(ctx, player)
+	if target != player {
+		e.SavePlayer(ctx, target)
+	}
 
 	if target == player {
 		return &CommandResult{

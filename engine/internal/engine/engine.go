@@ -519,6 +519,7 @@ func NewGameEngine(db *mongo.Database, parsed *gameworld.ParsedData) *GameEngine
 	e.seasonalMonsterLists = parsed.SeasonalMonsterLists
 	e.seasonalRooms = parsed.SeasonalRooms
 	e.currentSeason = GameSeason()
+	e.applySeasonalRooms()
 	e.monsterLists = e.buildActiveMonsterLists()
 	count := e.monsterMgr.SpawnInitialMonsters(e.monsterLists, e.monsters)
 	log.Printf("Season: %s (%s). Base MLISTs: %d, Seasonal: %d, Total: %d",
@@ -1933,6 +1934,9 @@ func (e *GameEngine) CheckSeasonChange() {
 	e.currentSeason = newSeason
 	e.monsterLists = e.buildActiveMonsterLists()
 
+	// Apply seasonal room overrides
+	e.applySeasonalRooms()
+
 	log.Printf("Season changed: %s -> %s. Active MLISTs: %d", oldSeason, newSeason, len(e.monsterLists))
 	e.Events.Publish("time", fmt.Sprintf("The season has changed to %s.", SeasonName()))
 
@@ -1945,6 +1949,47 @@ func (e *GameEngine) CheckSeasonChange() {
 	}
 	if msg, ok := seasonMessages[newSeason]; ok {
 		e.broadcastOutdoor(msg)
+	}
+}
+
+// applySeasonalRooms applies seasonal room overrides for the current season.
+// Seasonal scripts define room descriptions, exits, and items that change with the season.
+func (e *GameEngine) applySeasonalRooms() {
+	rooms, ok := e.seasonalRooms[e.currentSeason]
+	if !ok || len(rooms) == 0 {
+		return
+	}
+	count := 0
+	for i := range rooms {
+		r := &rooms[i]
+		if existing := e.rooms[r.Number]; existing != nil {
+			// Override description and terrain but preserve dynamic state
+			existing.Name = r.Name
+			existing.Description = r.Description
+			existing.Terrain = r.Terrain
+			existing.Exits = r.Exits
+			existing.MonsterGroup = r.MonsterGroup
+			if len(r.Items) > 0 {
+				existing.Items = r.Items
+			}
+			if len(r.Modifiers) > 0 {
+				existing.Modifiers = r.Modifiers
+			}
+			if len(r.ItemDescriptions) > 0 {
+				existing.ItemDescriptions = r.ItemDescriptions
+			}
+			if len(r.Scripts) > 0 {
+				existing.Scripts = r.Scripts
+			}
+			count++
+		} else {
+			// New room from seasonal script
+			e.rooms[r.Number] = r
+			count++
+		}
+	}
+	if count > 0 {
+		log.Printf("Applied %d seasonal room overrides for %s", count, SeasonName())
 	}
 }
 
@@ -2419,10 +2464,18 @@ func (e *GameEngine) examinePlayer(observer *Player, target *Player) *CommandRes
 		msgs = append(msgs, fmt.Sprintf("%s stunned.", pronoun))
 	}
 	if target.Poisoned {
-		msgs = append(msgs, fmt.Sprintf("%s looks poisoned.", isSelfOr(isSelf, "You look", heOrShe)))
+		if isSelf {
+			msgs = append(msgs, "You look poisoned.")
+		} else {
+			msgs = append(msgs, fmt.Sprintf("%s looks poisoned.", heOrShe))
+		}
 	}
 	if target.Diseased {
-		msgs = append(msgs, fmt.Sprintf("%s looks sickly.", isSelfOr(isSelf, "You look", heOrShe)))
+		if isSelf {
+			msgs = append(msgs, "You look sickly.")
+		} else {
+			msgs = append(msgs, fmt.Sprintf("%s looks sickly.", heOrShe))
+		}
 	}
 	if target.Immobilized {
 		msgs = append(msgs, fmt.Sprintf("%s rooted to the spot.", pronoun))
@@ -3076,24 +3129,7 @@ func (e *GameEngine) doWield(ctx context.Context, player *Player, args []string)
 	if len(args) == 0 {
 		return &CommandResult{Messages: []string{"Wield what?"}}
 	}
-	// If the target is a shield, route to WEAR instead
 	target := strings.ToLower(strings.Join(args, " "))
-	targetCheck, ordCheck := parseOrdinal(target)
-	skipCheck := ordCheck
-	for _, ii := range player.Inventory {
-		itemDef := e.items[ii.Archetype]
-		if itemDef == nil {
-			continue
-		}
-		name := e.getItemNounName(itemDef)
-		if matchesTarget(name, targetCheck, e.getAdjName(ii.Adj1)) {
-			if skipCheck > 0 { skipCheck--; continue }
-			if itemDef.Type == "SHIELD" {
-				return e.doWear(ctx, player, args)
-			}
-			break
-		}
-	}
 	target, ordSkip := parseOrdinal(target)
 	skip := ordSkip
 	for i, ii := range player.Inventory {
@@ -3101,24 +3137,29 @@ func (e *GameEngine) doWield(ctx context.Context, player *Player, args []string)
 		if itemDef == nil {
 			continue
 		}
-		if !isWeapon(itemDef.Type) {
+		name := e.getItemNounName(itemDef)
+		if !matchesTarget(name, target, e.getAdjName(ii.Adj1)) {
 			continue
 		}
-		name := e.getItemNounName(itemDef)
-		if matchesTarget(name, target, e.getAdjName(ii.Adj1)) {
-			if skip > 0 { skip--; continue }
-			if player.Wielded != nil {
-				player.Inventory = append(player.Inventory, *player.Wielded)
-			}
-			wielded := player.Inventory[i]
-			player.Inventory = append(player.Inventory[:i], player.Inventory[i+1:]...)
-			player.Wielded = &wielded
-			e.SavePlayer(ctx, player)
-			fullName := e.formatItemName(itemDef, ii.Adj1, ii.Adj2, ii.Adj3)
-			return &CommandResult{
-				Messages:      []string{fmt.Sprintf("You wield %s.", fullName)},
-				RoomBroadcast: []string{fmt.Sprintf("%s wields %s.", player.FirstName, fullName)},
-			}
+		if skip > 0 { skip--; continue }
+		// Shields are worn, not wielded — route to WEAR
+		if itemDef.Type == "SHIELD" || (itemDef.WornSlot != "" && !isWeapon(itemDef.Type)) {
+			return e.doWear(ctx, player, args)
+		}
+		if !isWeapon(itemDef.Type) {
+			return &CommandResult{Messages: []string{"You can't wield that."}}
+		}
+		if player.Wielded != nil {
+			player.Inventory = append(player.Inventory, *player.Wielded)
+		}
+		wielded := player.Inventory[i]
+		player.Inventory = append(player.Inventory[:i], player.Inventory[i+1:]...)
+		player.Wielded = &wielded
+		e.SavePlayer(ctx, player)
+		fullName := e.formatItemName(itemDef, ii.Adj1, ii.Adj2, ii.Adj3)
+		return &CommandResult{
+			Messages:      []string{fmt.Sprintf("You wield %s.", fullName)},
+			RoomBroadcast: []string{fmt.Sprintf("%s wields %s.", player.FirstName, fullName)},
 		}
 	}
 	return &CommandResult{Messages: []string{"You don't have that."}}
@@ -3411,7 +3452,7 @@ func (e *GameEngine) doWhisper(player *Player, args []string, rawInput string) *
 	return &CommandResult{
 		Messages:      []string{fmt.Sprintf("You whisper to %s.", found.FirstName)},
 		RoomBroadcast: []string{fmt.Sprintf("%s whispers to %s.", player.FirstName, found.FirstName)},
-		// The actual whisper content is sent only to the target via WhisperTarget
+		TargetName:    found.FirstName, // exclude target from room broadcast — they get WhisperMsg instead
 		WhisperTarget: found.FirstName,
 		WhisperMsg:    fmt.Sprintf("%s whispers to you, \"%s\"", player.FirstName, text),
 	}
@@ -5895,7 +5936,7 @@ func (e *GameEngine) doSkin(ctx context.Context, player *Player, args []string) 
 								Adj1:      adj,
 							}
 							player.Inventory = append(player.Inventory, item)
-							skinMsgs = append(skinMsgs, fmt.Sprintf("You carefully skin %s %s and obtain %s.", articleFor(displayName, def.Unique), displayName, skinName))
+							skinMsgs = append(skinMsgs, fmt.Sprintf("You carefully skin %s%s and obtain %s.", articleFor(displayName, def.Unique), displayName, skinName))
 						}
 						break
 					}

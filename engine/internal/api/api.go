@@ -527,6 +527,29 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 	})
 
 	session.lastActivity = time.Now()
+
+	// Idle timeout goroutine: disconnect after 30 min of no commands (even if WS stays open)
+	idleDone := make(chan struct{})
+	defer close(idleDone)
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-idleDone:
+				return
+			case <-ticker.C:
+				if time.Since(session.lastActivity) > 30*time.Minute && session.Player != nil {
+					s.sendResult(session, &engine.CommandResult{
+						Messages: []string{"You have been idle too long. Disconnecting..."},
+					})
+					conn.Close()
+					return
+				}
+			}
+		}
+	}()
+
 	for {
 		// Idle timeout: 30 minutes with no messages → disconnect
 		conn.SetReadDeadline(time.Now().Add(30 * time.Minute))

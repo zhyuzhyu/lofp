@@ -102,6 +102,8 @@ func (e *GameEngine) processGMCommand(ctx context.Context, player *Player, verb 
 		return e.gmPeek(player, args)
 	case "@SET":
 		return e.gmSet(ctx, player, args)
+	case "@SETP":
+		return e.gmSetPlayer(ctx, args)
 	case "@RND":
 		return e.gmRnd(args)
 	case "@OPEN":
@@ -1259,6 +1261,24 @@ func (e *GameEngine) gmSet(ctx context.Context, player *Player, args []string) *
 	}
 	e.SavePlayer(ctx, player)
 	return &CommandResult{Messages: []string{fmt.Sprintf("Set %s = %d", varName, val)}}
+}
+
+// gmSetPlayer handles @setp <player> <variable> <value> — set a variable on another player.
+func (e *GameEngine) gmSetPlayer(ctx context.Context, args []string) *CommandResult {
+	if len(args) < 3 {
+		return &CommandResult{Messages: []string{"Usage: @setp <player> <variable> <value>"}}
+	}
+	target, err := e.resolvePlayerArg(ctx, args[:1])
+	if err != nil {
+		return &CommandResult{Messages: []string{err.Error()}}
+	}
+	// Reuse gmSet logic with the target player
+	result := e.gmSet(ctx, target, args[1:])
+	// Prefix the message with target name
+	if len(result.Messages) > 0 {
+		result.Messages[0] = fmt.Sprintf("[%s] %s", target.FullName(), result.Messages[0])
+	}
+	return result
 }
 
 func (e *GameEngine) gmRnd(args []string) *CommandResult {

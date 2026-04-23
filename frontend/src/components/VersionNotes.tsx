@@ -9,6 +9,50 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.2 &mdash; April 23, 2026</h2>
+            <p className="text-gray-400 mb-3">Seasonal rooms, martial arts, healing, whisper, idle timeout, and more fixes.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Seasonal World</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Seasonal room overrides now load at startup and on season change &mdash; fixes missing rooms like Grymwood</li>
+                  <li>Rooms defined in spring/summer/autumn/winter scripts now apply their descriptions, exits, and items</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Combat &amp; Skills</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Martial Arts now boosts unarmed damage: +1 per rank + expanded damage range</li>
+                  <li>Monsters lose their target when the player hides (no more attacking hidden players)</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Fixes</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Whisper target no longer sees both the whisper content and 3rd-person room message</li>
+                  <li>HEAL another player now saves the target&rsquo;s updated health</li>
+                  <li>WIELD shield now properly routes to WEAR for any shield or wearable item</li>
+                  <li>Fixed &ldquo;You look looks sickly&rdquo; double-verb in self-examine when poisoned/diseased</li>
+                  <li>Fixed double space in skin command output (&ldquo;skin a  giant rat&rdquo;)</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">GM Tools</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li><code className="text-amber-300">@setp &lt;player&gt; &lt;var&gt; &lt;value&gt;</code> &mdash; set variables on another player (fixes @set after @edpl)</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Server</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>30-minute idle timeout &mdash; inactive players are now disconnected automatically</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.1 &mdash; April 23, 2026</h2>
             <p className="text-gray-400 mb-3">Second round of player-reported fixes: scripts, groups, combat, GM tools.</p>
 

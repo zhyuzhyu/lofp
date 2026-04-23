@@ -366,7 +366,10 @@ func playerDamage(player *Player, weaponDef *gameworld.ItemDef) int {
 			// Wolf form: claw/bite — higher base damage
 			return rand.Intn(8) + 3 + player.Strength/10
 		}
-		return rand.Intn(3) + 1 + player.Strength/20
+		// Martial Arts: +1 base damage per rank, +1 max damage per 2 ranks
+		maSkill := player.Skills[24]
+		baseDmg := rand.Intn(3+maSkill/2) + 1 + maSkill + player.Strength/20
+		return baseDmg
 	}
 	maxDmg := weaponDef.Parameter1
 	if maxDmg <= 0 {
@@ -1550,7 +1553,7 @@ func (e *GameEngine) monsterCombatTick(inst *MonsterInstance, def *gameworld.Mon
 		}
 	}
 
-	if target == nil {
+	if target == nil || target.Hidden || target.Invisible || target.GMInvis {
 		inst.Target = ""
 		return
 	}
