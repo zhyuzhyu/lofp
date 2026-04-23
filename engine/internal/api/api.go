@@ -687,6 +687,8 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 			if len(result.GMBroadcast) > 0 {
 				s.broadcastToGMs(result.GMBroadcast)
 			}
+			// Reset capture status so frontend UI is in sync
+			session.Conn.SendTypedMessage("capture_status", map[string]interface{}{"recording": false})
 
 		case "start_capture":
 			if session.Player == nil || accountID == "" {

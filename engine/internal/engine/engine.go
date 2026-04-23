@@ -9,6 +9,7 @@ import (
 	"log"
 	"math/rand"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -886,6 +887,8 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 			return &CommandResult{Messages: []string{"You don't see that person here."}}
 		}
 		return e.doStatus(player)
+	case "HEAL":
+		return e.doTend(ctx, player, args)
 	case "HEALTH", "DIAGNOSE":
 		if len(args) > 0 {
 			t := strings.ToLower(strings.Join(args, " "))
@@ -1190,8 +1193,31 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 			if result := e.doSearchMonster(ctx, player, args); result != nil {
 				return result
 			}
+			return e.doItemInteraction(ctx, player, verb, args)
 		}
-		return e.doItemInteraction(ctx, player, verb, args)
+		// Bare SEARCH: scan the area for hidden players
+		player.RoundTimeExpiry = time.Now().Add(5 * time.Second)
+		msgs := []string{"You search the area.", "[Round: 5 sec]"}
+		perceptionCheck := player.Perception + player.Skills[33]*5 // Stealth skill helps detection
+		var revealed []string
+		if e.sessions != nil {
+			for _, p := range e.sessions.OnlinePlayers() {
+				if p.RoomNumber == player.RoomNumber && p.Hidden && p.FirstName != player.FirstName {
+					// Perception vs their stealth
+					stealthRating := p.Agility + p.Skills[33]*5
+					if rand.Intn(100)+perceptionCheck > stealthRating {
+						p.Hidden = false
+						revealed = append(revealed, p.FirstName)
+					}
+				}
+			}
+		}
+		if len(revealed) > 0 {
+			for _, name := range revealed {
+				msgs = append(msgs, fmt.Sprintf("You discover %s hiding here!", name))
+			}
+		}
+		return &CommandResult{Messages: msgs}
 	case "PULL", "PUSH", "RUB", "TOUCH", "DIG", "USE":
 		return e.doItemInteraction(ctx, player, verb, args)
 	case "TURN":
@@ -1210,6 +1236,8 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		return e.doBuy(ctx, player, args)
 	case "SELL":
 		return e.doSell(ctx, player, args)
+	case "APPRAISE":
+		return e.doAppraise(player, args)
 	case "DRINK", "SIP":
 		return e.doDrink(ctx, player, args)
 	case "LIGHT":
@@ -1789,6 +1817,22 @@ func (e *GameEngine) doMove(ctx context.Context, player *Player, dir string) *Co
 	player.RoomNumber = destNum
 	player.Submitting = false // moving clears submit state
 	e.disengageCombat(player)  // moving clears combat
+
+	// Moving away from leader breaks follow
+	if player.Following != "" {
+		leaderHere := false
+		if e.sessions != nil {
+			for _, p := range e.sessions.OnlinePlayers() {
+				if p.FirstName == player.Following && p.RoomNumber == destNum {
+					leaderHere = true
+					break
+				}
+			}
+		}
+		if !leaderHere {
+			e.removeFromGroup(player)
+		}
+	}
 	e.SavePlayer(ctx, player)
 	result := e.doLook(player)
 	result.OldRoom = oldRoom
@@ -2425,6 +2469,12 @@ func (e *GameEngine) doGo(ctx context.Context, player *Player, args []string) *C
 	if len(args) == 0 {
 		return &CommandResult{Messages: []string{"Go where?"}}
 	}
+	if player.Position != 0 && player.Position != 4 {
+		posNames := map[int]string{1: "sitting", 2: "laying down", 3: "kneeling"}
+		posName := posNames[player.Position]
+		if posName == "" { posName = "not standing" }
+		return &CommandResult{Messages: []string{fmt.Sprintf("You can't move while %s! Try STANDing first.", posName)}}
+	}
 
 	target := strings.ToLower(strings.Join(args, " "))
 	room := e.rooms[player.RoomNumber]
@@ -2565,6 +2615,12 @@ func (e *GameEngine) doGoPortal(ctx context.Context, player *Player, room *gamew
 func (e *GameEngine) doClimb(ctx context.Context, player *Player, args []string) *CommandResult {
 	if len(args) == 0 {
 		return &CommandResult{Messages: []string{"Climb what?"}}
+	}
+	if player.Position != 0 && player.Position != 4 {
+		posNames := map[int]string{1: "sitting", 2: "laying down", 3: "kneeling"}
+		posName := posNames[player.Position]
+		if posName == "" { posName = "not standing" }
+		return &CommandResult{Messages: []string{fmt.Sprintf("You can't climb while %s! Try STANDing first.", posName)}}
 	}
 	target := strings.ToLower(strings.Join(args, " "))
 	target, ordSkip := parseOrdinal(target)
@@ -2977,7 +3033,24 @@ func (e *GameEngine) doWield(ctx context.Context, player *Player, args []string)
 	if len(args) == 0 {
 		return &CommandResult{Messages: []string{"Wield what?"}}
 	}
+	// If the target is a shield, route to WEAR instead
 	target := strings.ToLower(strings.Join(args, " "))
+	targetCheck, ordCheck := parseOrdinal(target)
+	skipCheck := ordCheck
+	for _, ii := range player.Inventory {
+		itemDef := e.items[ii.Archetype]
+		if itemDef == nil {
+			continue
+		}
+		name := e.getItemNounName(itemDef)
+		if matchesTarget(name, targetCheck, e.getAdjName(ii.Adj1)) {
+			if skipCheck > 0 { skipCheck--; continue }
+			if itemDef.Type == "SHIELD" {
+				return e.doWear(ctx, player, args)
+			}
+			break
+		}
+	}
 	target, ordSkip := parseOrdinal(target)
 	skip := ordSkip
 	for i, ii := range player.Inventory {
@@ -3130,6 +3203,23 @@ func (e *GameEngine) doOpen(player *Player, args []string) *CommandResult {
 			return &CommandResult{Messages: msgs}
 		}
 	}
+	// Check inventory containers
+	for i, ii := range player.Inventory {
+		itemDef := e.items[ii.Archetype]
+		if itemDef == nil {
+			continue
+		}
+		name := e.getItemNounName(itemDef)
+		if matchesTarget(name, target, e.getAdjName(ii.Adj1)) {
+			if skip > 0 { skip--; continue }
+			if !containsFlag(itemDef.Flags, "OPENABLE") {
+				return &CommandResult{Messages: []string{"You can't open that."}}
+			}
+			player.Inventory[i].State = "OPEN"
+			fullName := e.formatItemName(itemDef, ii.Adj1, ii.Adj2, ii.Adj3)
+			return &CommandResult{Messages: []string{fmt.Sprintf("You open %s.", fullName)}}
+		}
+	}
 	return &CommandResult{Messages: []string{"You don't see that here."}}
 }
 
@@ -3228,6 +3318,20 @@ func (e *GameEngine) doClose(player *Player, args []string) *CommandResult {
 			room.Items[i].State = "CLOSED"
 			e.notifyRoomChange(RoomChange{RoomNumber: player.RoomNumber, Type: "item_state", ItemRef: ri.Ref, NewState: "CLOSED"})
 			fullName := e.formatItemName(itemDef, ri.Adj1, ri.Adj2, ri.Adj3)
+			return &CommandResult{Messages: []string{fmt.Sprintf("You close %s.", fullName)}}
+		}
+	}
+	// Check inventory containers
+	for i, ii := range player.Inventory {
+		itemDef := e.items[ii.Archetype]
+		if itemDef == nil {
+			continue
+		}
+		name := e.getItemNounName(itemDef)
+		if matchesTarget(name, target, e.getAdjName(ii.Adj1)) {
+			if skip > 0 { skip--; continue }
+			player.Inventory[i].State = "CLOSED"
+			fullName := e.formatItemName(itemDef, ii.Adj1, ii.Adj2, ii.Adj3)
 			return &CommandResult{Messages: []string{fmt.Sprintf("You close %s.", fullName)}}
 		}
 	}
@@ -3331,6 +3435,10 @@ func (e *GameEngine) doPray(player *Player) *CommandResult {
 func (e *GameEngine) doContact(player *Player, args []string, rawInput string) *CommandResult {
 	if len(args) < 2 {
 		return &CommandResult{Messages: []string{"Contact whom with what message?"}}
+	}
+	// CONTACT requires psionic ability (Psionics skill 26 or any psionic school skill)
+	if player.Skills[26] < 1 && player.Skills[27] < 1 && player.Skills[28] < 1 && player.Skills[29] < 1 {
+		return &CommandResult{Messages: []string{"You do not possess psionic abilities."}}
 	}
 	targetName := strings.ToLower(args[0])
 	// Find the target among all online players (not just same room)
@@ -3443,6 +3551,9 @@ func (e *GameEngine) doFollow(player *Player, args []string) *CommandResult {
 	if player.Following != "" {
 		return &CommandResult{Messages: []string{fmt.Sprintf("You are already following %s.", player.Following)}}
 	}
+	if found.Following == player.FirstName {
+		return &CommandResult{Messages: []string{"You can't follow someone who is following you."}}
+	}
 	player.Following = found.FirstName
 	found.IsGroupLeader = true
 	// Add to leader's group members (avoid duplicates)
@@ -3485,14 +3596,13 @@ func (e *GameEngine) doHold(player *Player, found *Player) *CommandResult {
 	}
 }
 
-// doLeave handles the LEAVE command — stop following.
-func (e *GameEngine) doLeave(player *Player) *CommandResult {
+// removeFromGroup silently removes a player from their leader's group.
+func (e *GameEngine) removeFromGroup(player *Player) {
 	if player.Following == "" {
-		return &CommandResult{Messages: []string{"You are not following anyone."}}
+		return
 	}
 	leaderName := player.Following
 	player.Following = ""
-	// Remove from leader's GroupMembers
 	if e.sessions != nil {
 		for _, p := range e.sessions.OnlinePlayers() {
 			if p.FirstName == leaderName {
@@ -3509,6 +3619,15 @@ func (e *GameEngine) doLeave(player *Player) *CommandResult {
 			}
 		}
 	}
+}
+
+// doLeave handles the LEAVE command — stop following.
+func (e *GameEngine) doLeave(player *Player) *CommandResult {
+	if player.Following == "" {
+		return &CommandResult{Messages: []string{"You are not following anyone."}}
+	}
+	leaderName := player.Following
+	e.removeFromGroup(player)
 	return &CommandResult{
 		Messages:      []string{fmt.Sprintf("You stop following %s.", leaderName)},
 		RoomBroadcast: []string{fmt.Sprintf("%s stops following %s.", player.FirstName, leaderName)},
@@ -3966,6 +4085,51 @@ func (e *GameEngine) doSell(ctx context.Context, player *Player, args []string) 
 	return &CommandResult{Messages: []string{"You don't have that."}}
 }
 
+func (e *GameEngine) doAppraise(player *Player, args []string) *CommandResult {
+	if len(args) == 0 {
+		return &CommandResult{Messages: []string{"Appraise what?"}}
+	}
+	room := e.rooms[player.RoomNumber]
+	if room == nil {
+		return &CommandResult{Messages: []string{"You can't do that here."}}
+	}
+	canBuy := false
+	for _, mod := range room.Modifiers {
+		if strings.HasPrefix(mod, "BUY_") {
+			canBuy = true
+			break
+		}
+	}
+	if !canBuy {
+		return &CommandResult{Messages: []string{"There is no merchant here to appraise your items."}}
+	}
+	target := strings.ToLower(strings.Join(args, " "))
+	target, ordSkip := parseOrdinal(target)
+	skip := ordSkip
+	for _, ii := range player.Inventory {
+		itemDef := e.items[ii.Archetype]
+		if itemDef == nil {
+			continue
+		}
+		name := e.getItemNounName(itemDef)
+		if matchesTarget(name, target, e.getAdjName(ii.Adj1)) {
+			if skip > 0 { skip--; continue }
+			displayName := e.formatItemName(itemDef, ii.Adj1, ii.Adj2, ii.Adj3)
+			sellValue := ii.Val1
+			if sellValue <= 0 {
+				sellValue = itemDef.Weight + 1
+			}
+			sellValue = sellValue / 2
+			if sellValue < 1 { sellValue = 1 }
+			return &CommandResult{Messages: []string{
+				fmt.Sprintf("The merchant examines %s carefully.", displayName),
+				fmt.Sprintf("\"I'd give you %s for that.\"", formatPrice(sellValue)),
+			}}
+		}
+	}
+	return &CommandResult{Messages: []string{"You don't have that."}}
+}
+
 // formatPrice formats a copper amount as a readable price string.
 func formatPrice(copper int) string {
 	gold := copper / 100
@@ -3974,13 +4138,25 @@ func formatPrice(copper int) string {
 	cop := remainder % 10
 	var parts []string
 	if gold > 0 {
-		parts = append(parts, fmt.Sprintf("%d gold", gold))
+		if gold == 1 {
+			parts = append(parts, "1 gold crown")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d gold crowns", gold))
+		}
 	}
 	if silver > 0 {
-		parts = append(parts, fmt.Sprintf("%d silver", silver))
+		if silver == 1 {
+			parts = append(parts, "1 silver shilling")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d silver shillings", silver))
+		}
 	}
 	if cop > 0 || len(parts) == 0 {
-		parts = append(parts, fmt.Sprintf("%d copper", cop))
+		if cop == 1 {
+			parts = append(parts, "1 copper penny")
+		} else {
+			parts = append(parts, fmt.Sprintf("%d copper pennies", cop))
+		}
 	}
 	return joinList(parts)
 }
@@ -4663,6 +4839,7 @@ func (e *GameEngine) doWho(player *Player) *CommandResult {
 	if len(names) == 0 {
 		return &CommandResult{Messages: []string{"No adventurers are in the Realms."}}
 	}
+	sort.Strings(names)
 	// Build 4-column grid, 19-char columns
 	var msgs []string
 	for i := 0; i < len(names); i += 4 {
@@ -5687,7 +5864,18 @@ func (e *GameEngine) doTeach(ctx context.Context, player *Player, args []string)
 	}
 	skillNum, err := strconv.Atoi(args[0])
 	if err != nil || skillNum < 0 {
-		return &CommandResult{Messages: []string{"Unknown skill."}}
+		// Try matching by skill name
+		target := strings.ToLower(strings.Join(args, " "))
+		for id, name := range SkillNames {
+			if strings.HasPrefix(strings.ToLower(name), target) {
+				skillNum = id
+				err = nil
+				break
+			}
+		}
+		if err != nil {
+			return &CommandResult{Messages: []string{"Unknown skill."}}
+		}
 	}
 	if skillNum == 0 {
 		player.Teaching = 0

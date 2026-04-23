@@ -362,6 +362,10 @@ func playerArmorPercent(player *Player, items map[int]*gameworld.ItemDef) int {
 
 func playerDamage(player *Player, weaponDef *gameworld.ItemDef) int {
 	if weaponDef == nil {
+		if player.WolfForm {
+			// Wolf form: claw/bite — higher base damage
+			return rand.Intn(8) + 3 + player.Strength/10
+		}
 		return rand.Intn(3) + 1 + player.Strength/20
 	}
 	maxDmg := weaponDef.Parameter1
@@ -572,6 +576,9 @@ func weaponImmunityType(weaponDef *gameworld.ItemDef) int {
 
 func (e *GameEngine) weaponDisplayName(player *Player, weaponDef *gameworld.ItemDef) string {
 	if weaponDef == nil {
+		if player.WolfForm {
+			return "claws"
+		}
 		return "fists"
 	}
 	// Return name WITHOUT article — caller adds "your" prefix
@@ -737,7 +744,12 @@ func (e *GameEngine) doAttackMonster(ctx context.Context, player *Player, target
 	toHit := calcToHit(attackRating, monDefense)
 	roll := rand.Intn(100) + 1
 
-	selfVerb, thirdVerb, dmgNoun := attackVerb(weaponDef)
+	var selfVerb, thirdVerb, dmgNoun string
+	if weaponDef == nil && player.WolfForm {
+		selfVerb, thirdVerb, dmgNoun = "claw", "claws", "claw"
+	} else {
+		selfVerb, thirdVerb, dmgNoun = attackVerb(weaponDef)
+	}
 	weaponName := e.weaponDisplayName(player, weaponDef)
 
 	result := &CommandResult{}

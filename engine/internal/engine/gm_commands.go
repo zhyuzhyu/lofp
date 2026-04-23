@@ -1242,6 +1242,8 @@ func (e *GameEngine) gmSet(ctx context.Context, player *Player, args []string) *
 			player.IntNums = make(map[int]int)
 		}
 		player.IntNums[0] = val
+	case varName == "ORG", varName == "ORGANIZATION":
+		player.Organization = val
 	case strings.HasPrefix(varName, "INTNUM"):
 		numStr := strings.TrimPrefix(varName, "INTNUM")
 		idx, err := strconv.Atoi(numStr)
@@ -1474,7 +1476,11 @@ func (e *GameEngine) gmEchoPlr(args []string, rawInput string) *CommandResult {
 		return &CommandResult{Messages: []string{"Usage: @echoplr <name> <text>"}}
 	}
 	text := extractRawArgs(rawInput, 2)
-	return &CommandResult{Messages: []string{fmt.Sprintf("[Echo to %s] %s", args[0], text)}}
+	return &CommandResult{
+		Messages:      []string{fmt.Sprintf("[Echo to %s] %s", args[0], text)},
+		WhisperTarget: args[0],
+		WhisperMsg:    text,
+	}
 }
 
 func (e *GameEngine) gmExclude(args []string, rawInput string) *CommandResult {

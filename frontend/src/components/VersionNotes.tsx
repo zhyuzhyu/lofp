@@ -10,7 +10,7 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
         <div className="space-y-6 text-sm">
           <section>
             <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5 &mdash; April 23, 2026</h2>
-            <p className="text-gray-400 mb-3">Feedback pipeline, session visibility fix, email deliverability, input focus fixes.</p>
+            <p className="text-gray-400 mb-3">Feedback pipeline, 16 bug fixes from player reports, email deliverability.</p>
 
             <div className="space-y-4 mb-8">
               <div>
@@ -22,21 +22,53 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
                 </ul>
               </div>
               <div>
-                <h3 className="text-green-400 font-bold mb-1">Email Deliverability</h3>
+                <h3 className="text-green-400 font-bold mb-1">New Features</h3>
                 <ul className="text-gray-300 space-y-1 ml-4 list-disc">
-                  <li>SPF, DKIM, and DMARC DNS records configured for <code className="text-amber-300">lofp.metavert.io</code></li>
-                  <li>Account verification emails should no longer land in spam folders</li>
+                  <li><code className="text-amber-300">APPRAISE &lt;item&gt;</code> &mdash; see what a merchant will pay before selling</li>
+                  <li><code className="text-amber-300">SEARCH</code> (no target) &mdash; scan the area to reveal hidden players (perception vs stealth check)</li>
+                  <li><code className="text-amber-300">HEAL &lt;player&gt;</code> &mdash; now routes to TEND for healing instead of showing health stats</li>
+                  <li><code className="text-amber-300">TEACH</code> now accepts skill names in addition to skill numbers</li>
+                  <li>WHO list is now sorted alphabetically</li>
+                  <li>Merchant payments now show proper coin names: gold crowns, silver shillings, copper pennies</li>
                 </ul>
               </div>
               <div>
-                <h3 className="text-green-400 font-bold mb-1">Fixes</h3>
+                <h3 className="text-green-400 font-bold mb-1">Combat &amp; Movement</h3>
                 <ul className="text-gray-300 space-y-1 ml-4 list-disc">
-                  <li>Fixed invisible player bug &mdash; players could vanish from WHO list, room occupancy, and action broadcasts after reconnecting; caused by duplicate sessions from stale WebSocket connections</li>
-                  <li>Reconnecting now properly replaces the stale session instead of creating a second one</li>
-                  <li>Session cleanup (departure broadcast, presence unregister) only runs for the active session, so a stale disconnect can no longer ghost a reconnected player</li>
-                  <li>Fix applies to all connection types: WebSocket, Telnet, and SSH</li>
+                  <li>Wolfling wolf form now uses claw attacks with higher damage (3-10 + STR/10) instead of fist damage</li>
+                  <li>Wolf form shows &ldquo;claws&rdquo; instead of &ldquo;fists&rdquo; in combat messages</li>
+                  <li>Can no longer climb ladders, go through portals, or use GO while lying down, sitting, or kneeling</li>
+                  <li>CONTACT now requires psionic abilities (Psionics or psionic school skill)</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Group &amp; Follow</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Following now breaks when you manually move away from your leader</li>
+                  <li>Two players can no longer follow each other (circular follow prevented)</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Items &amp; Containers</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Shields can now be equipped via WIELD (auto-routes to WEAR)</li>
+                  <li>Containers in your inventory can now be opened and closed</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">GM Tools</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li><code className="text-amber-300">@echoplr</code> now sends the message to the target player (was GM-only echo)</li>
+                  <li><code className="text-amber-300">@set ORG &lt;value&gt;</code> &mdash; set a player&rsquo;s organization for script conditionals</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Other Fixes</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Fixed invisible player bug &mdash; reconnecting no longer creates duplicate sessions</li>
+                  <li>Capture recording button now resets properly on reconnect</li>
                   <li>Fixed input losing focus after pressing Enter on Windows and Android Chrome</li>
-                  <li>Use viewport width instead of touch detection for mobile focus behavior</li>
+                  <li>SPF, DKIM, and DMARC DNS records configured for email deliverability</li>
                 </ul>
               </div>
             </div>
