@@ -44,6 +44,7 @@ func init() {
 		{12, "Teleportation", "Mind over Matter", 18, 15, 5, "utility", 0, 0, "", 0, 0, 0},
 		{13, "Force Field", "Mind over Matter", 20, 20, 5, "defense", 0, 0, "", 75, 0, 0},
 		{14, "Immobilize", "Mind over Matter", 22, 18, 5, "utility", 0, 0, "", 0, 0, 0},
+		{15, "Ethereal Projection", "Mind over Matter", 25, 25, 10, "utility", 0, 0, "", 0, 0, 0},
 	}
 	moo := []PsiDiscipline{
 		{50, "Telepathy", "Mind over Mind", 1, 2, 5, "utility", 0, 0, "", 0, 0, 0},
@@ -283,9 +284,8 @@ func (e *GameEngine) doProjectPsi(ctx context.Context, player *Player, args []st
 		return &CommandResult{Messages: []string{fmt.Sprintf("You are still focusing... %.0f seconds remaining.", remaining+0.5)}}
 	}
 
-	// Deduct psi
+	// Deduct psi — keep discipline prepared for re-use (psi retains last power)
 	player.Psi -= disc.PsiCost
-	player.PreparedPsi = 0
 
 	// Skill check
 	psiSkill := player.Skills[26]

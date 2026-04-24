@@ -9,6 +9,45 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.6 &mdash; April 23, 2026</h2>
+            <p className="text-gray-400 mb-3">Flight movement, PSI persistence, INITIATE, per-IP limit, NPC pacing, ordinals.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Psionics</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Prepared psionic power now persists after projection &mdash; no need to re-prepare each time</li>
+                  <li>Flying players can now move normally (PSI Flight no longer blocks movement)</li>
+                  <li>Added Ethereal Projection (PSI 15) discipline</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Commands</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>INITIATE &lt;player&gt; &lt;org#&gt; &mdash; GM command to set player organization</li>
+                  <li>&ldquo;GO COUNTER 2&rdquo; now works (trailing numbers parsed as ordinals)</li>
+                  <li>&ldquo;WORK METAL&rdquo; now prompts for specific metal type instead of confusing error</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">GM Tools</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>@set BP/FAT/MANA/PSI now sets both current and max values</li>
+                  <li>Use BODYPOINTS/MAXBODYPOINTS for fine-grained control</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Balance &amp; Polish</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>NPC ambient wander rate halved (less screen clutter)</li>
+                  <li>Per-IP connection limit raised from 5 to 8</li>
+                  <li>Chrome desktop: additional focus retention fix</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.5 &mdash; April 23, 2026</h2>
             <p className="text-gray-400 mb-3">PSI teleportation, partial item names, @echoplr fix, emote articles, custom descriptions.</p>
 

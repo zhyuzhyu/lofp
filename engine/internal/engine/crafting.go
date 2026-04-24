@@ -398,6 +398,10 @@ func (e *GameEngine) doWork(ctx context.Context, player *Player, args []string) 
 			return &CommandResult{Messages: []string{"Work with what metal? e.g., WORK IRON"}}
 		}
 		metal := strings.ToLower(strings.Join(args, " "))
+		// "work metal" by itself — prompt for specific type
+		if metal == "metal" {
+			return &CommandResult{Messages: []string{"Which metal? e.g., WORK IRON, WORK STEEL, WORK COPPER"}}
+		}
 
 		// Find matching material in inventory
 		materialIdx := -1

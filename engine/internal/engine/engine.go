@@ -1368,7 +1368,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		player.PromptMode = false; e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"Prompt indicators off."}}
 	case "VERSION", "NEWS", "NOTES":
-		return &CommandResult{Messages: []string{"Legends of Future Past v11.5.5"}}
+		return &CommandResult{Messages: []string{"Legends of Future Past v11.5.6"}}
 	case "CREDITS":
 		return &CommandResult{Messages: []string{
 			"",
@@ -1607,7 +1607,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 	case "ENROLL":
 		return &CommandResult{Messages: []string{"[Organization enrollment coming soon.]"}} // TODO: join open org
 	case "INITIATE":
-		return &CommandResult{Messages: []string{"[Initiation coming soon.]"}} // TODO: initiate player into org
+		return e.doInitiate(ctx, player, args)
 	case "FOLLOW":
 		return e.doFollow(player, args)
 	case "JOIN":
@@ -1813,7 +1813,7 @@ func (e *GameEngine) doMove(ctx context.Context, player *Player, dir string) *Co
 	if player.Hidden {
 		player.Hidden = false
 	}
-	if player.Position != 0 {
+	if player.Position != 0 && player.Position != 4 { // 4 = flying, can move
 		posNames := map[int]string{1: "sitting", 2: "laying down", 3: "kneeling"}
 		posName := posNames[player.Position]
 		if posName == "" {
@@ -5634,6 +5634,14 @@ func parseOrdinal(target string) (string, int) {
 	if num, err := strconv.Atoi(first); err == nil && num >= 1 {
 		return parts[1], num - 1
 	}
+	// Check trailing number: "counter 2" means 2nd counter
+	lastSpace := strings.LastIndex(target, " ")
+	if lastSpace > 0 {
+		last := target[lastSpace+1:]
+		if num, err := strconv.Atoi(last); err == nil && num >= 1 {
+			return target[:lastSpace], num - 1
+		}
+	}
 	return target, 0
 }
 
@@ -5846,6 +5854,32 @@ func genderName(g int) string {
 }
 
 // organizationName returns the display name for an organization number.
+func (e *GameEngine) doInitiate(ctx context.Context, player *Player, args []string) *CommandResult {
+	if !player.IsGM {
+		return &CommandResult{Messages: []string{"Only GMs can initiate players into organizations."}}
+	}
+	if len(args) < 2 {
+		return &CommandResult{Messages: []string{"Usage: INITIATE <player> <org#>"}}
+	}
+	target, err := e.resolvePlayerArg(ctx, args[:1])
+	if err != nil {
+		return &CommandResult{Messages: []string{err.Error()}}
+	}
+	orgNum, err2 := strconv.Atoi(args[1])
+	if err2 != nil || orgNum < 0 {
+		return &CommandResult{Messages: []string{"Organization must be a number (0 to remove, 1-12 to set)."}}
+	}
+	target.Organization = orgNum
+	e.SavePlayer(ctx, target)
+	if orgNum == 0 {
+		return &CommandResult{Messages: []string{fmt.Sprintf("%s has been removed from their organization.", target.FullName())}}
+	}
+	orgName := organizationName(orgNum)
+	return &CommandResult{
+		Messages: []string{fmt.Sprintf("%s has been initiated into the %s (org %d).", target.FullName(), orgName, orgNum)},
+	}
+}
+
 func organizationName(org int) string {
 	names := map[int]string{
 		1:  "Adventurer's Guild",

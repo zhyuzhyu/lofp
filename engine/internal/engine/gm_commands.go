@@ -1242,20 +1242,28 @@ func (e *GameEngine) gmSetOnPlayer(ctx context.Context, player *Player, args []s
 		player.Willpower = val
 	case varName == "EMPATHY":
 		player.Empathy = val
-	case varName == "BODYPOINTS":
+	case varName == "BP" || varName == "BODYPOINTS":
 		player.BodyPoints = val
-	case varName == "MAXBODYPOINTS":
+		if varName == "BP" {
+			player.MaxBodyPoints = val // shorthand sets both
+		}
+	case varName == "MAXBODYPOINTS" || varName == "MAXBP":
 		player.MaxBodyPoints = val
-	case varName == "FATIGUE":
+	case varName == "FATIGUE" || varName == "FAT":
 		player.Fatigue = val
+		if varName == "FAT" {
+			player.MaxFatigue = val // shorthand sets both
+		}
 	case varName == "MAXFATIGUE":
 		player.MaxFatigue = val
 	case varName == "MANA":
 		player.Mana = val
+		player.MaxMana = val
 	case varName == "MAXMANA":
 		player.MaxMana = val
 	case varName == "PSI":
 		player.Psi = val
+		player.MaxPsi = val
 	case varName == "MAXPSI":
 		player.MaxPsi = val
 	case varName == "ROUNDTIME":

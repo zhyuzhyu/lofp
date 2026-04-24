@@ -515,8 +515,8 @@ func (e *GameEngine) monsterTick(tick int) {
 			}
 		}
 
-		// Wandering: ~10% chance per action tick for non-hostile, non-combat monsters
-		if def.Strategy < 301 && inst.Target == "" && rand.Intn(100) < 10 {
+		// Wandering: ~5% chance per action tick for non-hostile, non-combat monsters
+		if def.Strategy < 301 && inst.Target == "" && rand.Intn(100) < 5 {
 			room := e.rooms[inst.RoomNumber]
 			if room == nil {
 				continue

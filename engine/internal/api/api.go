@@ -480,7 +480,7 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 	// Per-IP connection limiting
 	ip := getClientIP(r)
 	s.connMu.Lock()
-	if s.connsByIP[ip] >= 5 { // max 5 connections per IP
+	if s.connsByIP[ip] >= 8 { // max 8 connections per IP
 		s.connMu.Unlock()
 		http.Error(w, "too many connections", 429)
 		return
