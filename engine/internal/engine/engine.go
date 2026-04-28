@@ -1011,17 +1011,13 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 	case "EXPERIENCE", "EXP":
 		// Recalc to make sure BP is current
 		recalcBuildPoints(player)
-		totalBP := player.BuildPoints
 		spentBP := playerBPSpent(player)
-		unspentBP := totalBP - spentBP
-		if unspentBP < 0 {
-			unspentBP = 0
-		}
+		totalBP := player.BuildPoints + spentBP
 		xpUntilNext := xpUntilNextBuildPoint(player)
 		return &CommandResult{Messages: []string{
 			fmt.Sprintf("Experience: %d", player.Experience),
 			fmt.Sprintf("Build Points to date: %d", totalBP),
-			fmt.Sprintf("Unspent Build Points: %d", unspentBP),
+			fmt.Sprintf("Unspent Build Points: %d", player.BuildPoints),
 			fmt.Sprintf("Experience Points until next Build Point: %d", xpUntilNext),
 		}}
 	case "INFO":
@@ -1368,7 +1364,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		player.PromptMode = false; e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"Prompt indicators off."}}
 	case "VERSION", "NEWS", "NOTES":
-		return &CommandResult{Messages: []string{"Legends of Future Past v11.5.8"}}
+		return &CommandResult{Messages: []string{"Legends of Future Past v11.5.9"}}
 	case "CREDITS":
 		return &CommandResult{Messages: []string{
 			"",
@@ -2332,6 +2328,9 @@ func (e *GameEngine) doLookAt(player *Player, args []string) *CommandResult {
 		name := e.getItemNounName(itemDef)
 		if matchesTarget(name, remaining, e.getAdjName(ii.Adj1)) || matchesTarget(name, remaining, e.getAdjName(ii.Adj3)) {
 			if skip > 0 { skip--; continue }
+			if prefix == "IN" && (itemDef.Type == "CONTAINER" || containsFlag(itemDef.Flags, "CONTAINER")) {
+				return e.lookInContainer(player, itemDef, &ii)
+			}
 			return &CommandResult{Messages: []string{fmt.Sprintf("You look at your %s.", name)}}
 		}
 	}
@@ -5415,9 +5414,9 @@ func (e *GameEngine) doSet(ctx context.Context, player *Player, args []string) *
 
 	var turnOn bool
 	switch value {
-	case "ON":
+	case "ON", "TRUE", "YES":
 		turnOn = true
-	case "OFF":
+	case "OFF", "FALSE", "NO":
 		turnOn = false
 	default:
 		return &CommandResult{Messages: []string{"Usage: SET <setting> ON/OFF"}}
@@ -5546,6 +5545,17 @@ func (e *GameEngine) getItemNounName(def *gameworld.ItemDef) string {
 	return fmt.Sprintf("item#%d", def.Number)
 }
 
+// adjByName returns the adjective ID for a given name (case-insensitive), or 0 if not found.
+func (e *GameEngine) adjByName(name string) int {
+	target := strings.ToLower(name)
+	for id, adj := range e.adjectives {
+		if strings.ToLower(adj) == target {
+			return id
+		}
+	}
+	return 0
+}
+
 func (e *GameEngine) getAdjName(adjID int) string {
 	if adjID > 0 {
 		if name, ok := e.adjectives[adjID]; ok {
@@ -5553,6 +5563,11 @@ func (e *GameEngine) getAdjName(adjID int) string {
 		}
 	}
 	return ""
+}
+
+func (e *GameEngine) lookInContainer(player *Player, def *gameworld.ItemDef, ii *InventoryItem) *CommandResult {
+	name := e.formatItemName(def, ii.Adj1, ii.Adj2, ii.Adj3)
+	return &CommandResult{Messages: []string{fmt.Sprintf("You look in %s. It is empty.", name)}}
 }
 
 func (e *GameEngine) examineRoomItem(player *Player, room *gameworld.Room, def *gameworld.ItemDef, ri *gameworld.RoomItem) *CommandResult {

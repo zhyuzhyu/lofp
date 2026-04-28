@@ -9,6 +9,41 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.9 &mdash; April 28, 2026</h2>
+            <p className="text-gray-400 mb-3">Build point fix, level-up mana/psi, open-ended crits, typed mining ore, GM idle exempt.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Critical Fix</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Build Points no longer reset when viewing EXP/STATUS &mdash; spent BP are now properly tracked</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Combat</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Open-ended critical hits (96-100): bonus damage roll, with double-open-ended for devastating crits</li>
+                  <li>Level-up now increases MaxMana and MaxPsi (based on Willpower/Empathy)</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Crafting</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Mining now produces typed ore (iron, copper, bronze, tin, steel) based on mine grade</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Fixes</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>GMs exempt from 30-minute idle timeout</li>
+                  <li>SET accepts TRUE/FALSE/YES/NO in addition to ON/OFF</li>
+                  <li>LOOK IN container shows contents (or &ldquo;empty&rdquo;)</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.8 &mdash; April 28, 2026</h2>
             <p className="text-gray-400 mb-3">Ethereal Projection persistence, Flight cancel, Manipulate Lock, LOOK direction items.</p>
 

@@ -71,14 +71,55 @@ func (e *GameEngine) doMineReal(ctx context.Context, player *Player) *CommandRes
 		}
 	}
 
-	// Find ore item (archetype 1369 = general ore, 1371 = iron ore)
-	oreArch := 1369
-	if grade == "A" && rand.Intn(100) < 30 {
-		oreArch = 1371 // iron ore more common in grade A
+	// Pick ore type and metal adjective based on grade
+	// Grade A: iron/steel metals, Grade B: copper/bronze, Grade C: tin/copper
+	type metalChoice struct {
+		adj    int
+		name   string
+		weight int
 	}
+	var metals []metalChoice
+	switch grade {
+	case "A":
+		metals = []metalChoice{
+			{e.adjByName("iron"), "iron", 40},
+			{e.adjByName("steel"), "steel", 20},
+			{e.adjByName("bronze"), "bronze", 25},
+			{e.adjByName("copper"), "copper", 15},
+		}
+	case "B":
+		metals = []metalChoice{
+			{e.adjByName("copper"), "copper", 40},
+			{e.adjByName("bronze"), "bronze", 30},
+			{e.adjByName("iron"), "iron", 20},
+			{e.adjByName("tin"), "tin", 10},
+		}
+	default: // C
+		metals = []metalChoice{
+			{e.adjByName("copper"), "copper", 40},
+			{e.adjByName("tin"), "tin", 35},
+			{e.adjByName("iron"), "iron", 25},
+		}
+	}
+	// Weighted random selection
+	totalWeight := 0
+	for _, m := range metals {
+		totalWeight += m.weight
+	}
+	pick := rand.Intn(totalWeight)
+	chosenAdj := 0
+	for _, m := range metals {
+		pick -= m.weight
+		if pick < 0 {
+			chosenAdj = m.adj
+			break
+		}
+	}
+
+	// Find ore item archetype
+	oreArch := 1369
 	oreDef := e.items[oreArch]
 	if oreDef == nil {
-		// Fallback: find any ORE type item
 		for num, def := range e.items {
 			if def.Type == "ORE" {
 				oreArch = num
@@ -104,12 +145,12 @@ func (e *GameEngine) doMineReal(ctx context.Context, player *Player) *CommandRes
 
 	ore := InventoryItem{
 		Archetype: oreArch,
-		Val3:      purity, // purity percentage
+		Adj1:      chosenAdj, // metal type adjective
+		Val3:      purity,
 	}
 	player.Inventory = append(player.Inventory, ore)
 	e.SavePlayer(ctx, player)
 
-	oreName := e.getItemNounName(oreDef)
 	qualityDesc := "poor"
 	if purity > 70 {
 		qualityDesc = "excellent"
@@ -119,8 +160,9 @@ func (e *GameEngine) doMineReal(ctx context.Context, player *Player) *CommandRes
 		qualityDesc = "fair"
 	}
 
+	displayName := e.formatItemName(oreDef, ore.Adj1, ore.Adj2, ore.Adj3)
 	return &CommandResult{
-		Messages:      []string{fmt.Sprintf("You chip away at the rock and extract some %s looking %s!", qualityDesc, oreName)},
+		Messages:      []string{fmt.Sprintf("You chip away at the rock and extract some %s looking %s!", qualityDesc, displayName)},
 		RoomBroadcast: []string{fmt.Sprintf("%s mines some ore from the rock.", player.FirstName)},
 		PlayerState:   player,
 	}

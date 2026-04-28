@@ -539,7 +539,7 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 			case <-idleDone:
 				return
 			case <-ticker.C:
-				if time.Since(session.lastActivity) > 30*time.Minute && session.Player != nil {
+				if time.Since(session.lastActivity) > 30*time.Minute && session.Player != nil && !session.Player.IsGM {
 					s.sendResult(session, &engine.CommandResult{
 						Messages: []string{"You have been idle too long. Disconnecting..."},
 					})

@@ -103,7 +103,12 @@ func recalcBuildPoints(player *Player) (leveledUp bool) {
 	}
 
 	oldLevel := player.Level
-	player.BuildPoints = bp
+	// BuildPoints = total earned BP minus BP spent on skills
+	spent := playerBPSpent(player)
+	player.BuildPoints = bp - spent
+	if player.BuildPoints < 0 {
+		player.BuildPoints = 0
+	}
 	player.Level = lvl
 
 	return player.Level > oldLevel
@@ -804,9 +809,23 @@ func (e *GameEngine) doAttackMonster(ctx context.Context, player *Player, target
 		if excellent {
 			hitLabel = "Excellent Hit!"
 		}
+		// Open-ended roll: 96-100 adds a bonus roll
+		openEndedBonus := 0
+		if excellent {
+			bonus := rand.Intn(100) + 1
+			openEndedBonus = bonus / 2 // bonus damage %
+			if bonus >= 96 {
+				// Double open-ended!
+				hitLabel = "Devastating Critical!!"
+				openEndedBonus += rand.Intn(100)/2 + 50
+			}
+		}
 		msgs = append(msgs, fmt.Sprintf(" [ToHit: %d, Roll: %d] %s", toHit, roll, hitLabel))
 
 		dmg := playerDamage(player, weaponDef)
+		if openEndedBonus > 0 {
+			dmg = dmg * (100 + openEndedBonus) / 100
+		}
 		dmg = applyArmor(dmg, def.Armor)
 		immType := weaponImmunityType(weaponDef)
 		if level, ok := def.Immunities[immType]; ok {
@@ -1298,6 +1317,10 @@ func (e *GameEngine) handleMonsterDeath(killer *Player, inst *MonsterInstance, d
 		killer.BodyPoints = killer.MaxBodyPoints
 		killer.MaxFatigue += killer.Constitution / 15
 		killer.Fatigue = killer.MaxFatigue
+		killer.MaxMana += (killer.Willpower + killer.Empathy) / 15
+		killer.Mana = killer.MaxMana
+		killer.MaxPsi += killer.Willpower / 10
+		killer.Psi = killer.MaxPsi
 		xpMsgs = append(xpMsgs, fmt.Sprintf("Congratulations! You have advanced to level %d!", killer.Level))
 		if e.roomBroadcast != nil {
 			e.roomBroadcast(killer.RoomNumber, []string{
