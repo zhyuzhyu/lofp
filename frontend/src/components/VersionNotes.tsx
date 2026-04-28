@@ -9,6 +9,33 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.8 &mdash; April 28, 2026</h2>
+            <p className="text-gray-400 mb-3">Ethereal Projection persistence, Flight cancel, Manipulate Lock, LOOK direction items.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Psionics</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Ethereal Projection now persists through movement (psi-maintained hiding)</li>
+                  <li>SEARCH no longer reveals players using Ethereal Projection</li>
+                  <li>Canceling Flight/Levitate properly resets position and CanFly</li>
+                  <li>Manipulate Lock (PSI 8) now works &mdash; psionically unlocks locked items</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Fixes</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>LOOK direction now shows room items in addition to players and monsters</li>
+                  <li>Bot login/logout messages suppressed</li>
+                  <li>@vis/@invis now reports if already in that state</li>
+                  <li>@set FATIGUE always sets both current and max</li>
+                  <li>TEND self says &ldquo;You don&rsquo;t need healing&rdquo; instead of &ldquo;yourself doesn&rsquo;t need healing&rdquo;</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.7 &mdash; April 25, 2026</h2>
             <p className="text-gray-400 mb-3">PSI Flight fix, GM invisibility, Ethereal Projection, emotes on dead monsters.</p>
 

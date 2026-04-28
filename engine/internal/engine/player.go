@@ -104,6 +104,7 @@ type Player struct {
 	RoundTime       int       `bson:"roundTime" json:"roundTime"`
 	RoundTimeExpiry time.Time `bson:"-" json:"-"` // transient: when roundtime ends
 	CanFly          bool      `bson:"canFly" json:"canFly"`
+	EtherealActive  bool      `bson:"etherealActive" json:"etherealActive"` // PSI Ethereal Projection active
 	PreparedSpell   int       `bson:"preparedSpell,omitempty" json:"preparedSpell,omitempty"`
 
 	// Combat

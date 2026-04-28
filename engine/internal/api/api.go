@@ -616,7 +616,7 @@ func (s *Server) handleGameWS(w http.ResponseWriter, r *http.Request) {
 				player.IsGM, player.GMHat, player.GMHidden, player.GMInvis, player.Hidden)
 			s.gamelog.Log(gamelog.EventGameEnter, player.FullName(), player.AccountID,
 				"bot login via API key", player.RoomNumber, "")
-			if !player.GMInvis && !player.GMHidden {
+			if !player.GMInvis && !player.GMHidden && !player.IsBot {
 				s.broadcastGlobal(player.FirstName,
 					[]string{fmt.Sprintf("** %s has just entered the Realms.", player.FirstName)})
 				s.broadcastToRoom(player.RoomNumber, player.FirstName, []string{fmt.Sprintf("%s arrives.", player.FirstName)})

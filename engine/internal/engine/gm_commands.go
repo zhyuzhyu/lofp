@@ -49,11 +49,17 @@ func (e *GameEngine) processGMCommand(ctx context.Context, player *Player, verb 
 		e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"You are now visible on the WHO list."}}
 	case "@INVIS":
+		if player.GMInvis {
+			return &CommandResult{Messages: []string{"You are already invisible."}}
+		}
 		player.GMInvis = true
 		player.Hidden = true
 		e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"You fade from sight."}}
 	case "@VIS":
+		if !player.GMInvis {
+			return &CommandResult{Messages: []string{"You are already visible."}}
+		}
 		player.GMInvis = false
 		player.Hidden = false
 		e.SavePlayer(ctx, player)
@@ -1251,9 +1257,7 @@ func (e *GameEngine) gmSetOnPlayer(ctx context.Context, player *Player, args []s
 		player.MaxBodyPoints = val
 	case varName == "FATIGUE" || varName == "FAT":
 		player.Fatigue = val
-		if varName == "FAT" {
-			player.MaxFatigue = val // shorthand sets both
-		}
+		player.MaxFatigue = val // always set both
 	case varName == "MAXFATIGUE":
 		player.MaxFatigue = val
 	case varName == "MANA":

@@ -272,6 +272,9 @@ func (e *GameEngine) doTend(ctx context.Context, player *Player, args []string) 
 	}
 
 	if target.BodyPoints >= target.MaxBodyPoints && !target.Bleeding && !target.Poisoned {
+		if target == player {
+			return &CommandResult{Messages: []string{"You don't need healing."}}
+		}
 		return &CommandResult{Messages: []string{fmt.Sprintf("%s doesn't need healing.", targetName)}}
 	}
 

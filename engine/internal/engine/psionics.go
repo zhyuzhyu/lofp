@@ -143,6 +143,18 @@ func (e *GameEngine) doPreparePsi(player *Player, args []string) *CommandResult 
 		if disc.DefBonus > 0 {
 			player.DefenseBonus -= disc.DefBonus
 		}
+		// Clear flight state
+		if disc.ID == 2 || disc.ID == 10 { // Levitate or Flight
+			player.CanFly = false
+			if player.Position == 4 {
+				player.Position = 0
+			}
+		}
+		// Clear ethereal projection
+		if disc.ID == 15 {
+			player.EtherealActive = false
+			player.Hidden = false
+		}
 		return &CommandResult{
 			Messages:      []string{fmt.Sprintf("You release your concentration on %s.", disc.Name)},
 			RoomBroadcast: []string{fmt.Sprintf("%s relaxes %s concentration.", player.FirstName, player.Possessive())},
@@ -177,6 +189,7 @@ func (e *GameEngine) doPreparePsi(player *Player, args []string) *CommandResult 
 		case 15: // Ethereal Projection
 			msg = "Your body becomes translucent as you shift into the ethereal plane."
 			player.Hidden = true
+			player.EtherealActive = true
 		case 54: // Psychic Screen
 			msg = "A psychic screen forms around your mind."
 		case 57: // Psychic Shield
@@ -329,6 +342,8 @@ func (e *GameEngine) doProjectPsi(ctx context.Context, player *Player, args []st
 			result = e.projectImmobilize(player, args)
 		} else if disc.ID == 12 { // Teleportation
 			result = e.projectTeleport(ctx, player, args)
+		} else if disc.ID == 8 { // Manipulate Lock
+			result = e.projectManipulateLock(player, args)
 		} else {
 			result.Messages = []string{fmt.Sprintf("You project %s.", disc.Name)}
 			result.RoomBroadcast = []string{fmt.Sprintf("%s concentrates intensely.", player.FirstName)}
@@ -472,6 +487,7 @@ func (e *GameEngine) projectBuff(player *Player, disc *PsiDiscipline) *CommandRe
 		msg = "You project Flight. You rise into the air!"
 	case 15: // Ethereal Projection
 		player.Hidden = true
+		player.EtherealActive = true
 		msg = "You project Ethereal Projection. Your body becomes translucent."
 	case 60: // Focus Skill
 		msg = "You project Focus Skill. Your mind sharpens. (+25 to next skill roll)"
@@ -516,4 +532,47 @@ func (e *GameEngine) projectTeleport(ctx context.Context, player *Player, args [
 	result.OldRoom = oldRoom
 	result.OldRoomMsg = []string{fmt.Sprintf("%s vanishes in a flash of psionic energy!", player.FirstName)}
 	return result
+}
+
+// projectManipulateLock attempts to psionically unlock a locked item in the room.
+func (e *GameEngine) projectManipulateLock(player *Player, args []string) *CommandResult {
+	room := e.rooms[player.RoomNumber]
+	if room == nil {
+		return &CommandResult{Messages: []string{"You can't do that here."}}
+	}
+	target := ""
+	if len(args) > 0 {
+		target = strings.ToLower(strings.Join(args, " "))
+	}
+	// Find first locked item (or matching target)
+	for i, ri := range room.Items {
+		itemDef := e.items[ri.Archetype]
+		if itemDef == nil || ri.State != "LOCKED" {
+			continue
+		}
+		name := e.getItemNounName(itemDef)
+		if target != "" && !matchesTarget(name, target, e.getAdjName(ri.Adj1)) {
+			continue
+		}
+		// Skill check: psi skill + willpower vs lock difficulty
+		psiSkill := player.Skills[26] + player.Skills[28]
+		chance := 40 + psiSkill*3 + player.Willpower/5
+		if player.IsGM {
+			chance = 100
+		}
+		displayName := e.formatItemName(itemDef, ri.Adj1, ri.Adj2, ri.Adj3)
+		if rand.Intn(100) < chance {
+			room.Items[i].State = "CLOSED"
+			e.notifyRoomChange(RoomChange{RoomNumber: player.RoomNumber, Type: "item_state", ItemRef: ri.Ref, NewState: "CLOSED"})
+			return &CommandResult{
+				Messages:      []string{fmt.Sprintf("You concentrate on %s... The lock clicks open!", displayName)},
+				RoomBroadcast: []string{fmt.Sprintf("%s stares intently at %s.", player.FirstName, displayName)},
+			}
+		}
+		return &CommandResult{
+			Messages:      []string{fmt.Sprintf("You concentrate on %s but the lock resists your mental force.", displayName)},
+			RoomBroadcast: []string{fmt.Sprintf("%s stares intently at %s.", player.FirstName, displayName)},
+		}
+	}
+	return &CommandResult{Messages: []string{"You don't see anything locked here."}}
 }

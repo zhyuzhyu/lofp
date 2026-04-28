@@ -1238,7 +1238,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		var revealed []string
 		if e.sessions != nil {
 			for _, p := range e.sessions.OnlinePlayers() {
-				if p.RoomNumber == player.RoomNumber && p.Hidden && p.FirstName != player.FirstName {
+				if p.RoomNumber == player.RoomNumber && p.Hidden && !p.EtherealActive && p.FirstName != player.FirstName {
 					// Perception vs their stealth
 					stealthRating := p.Agility + p.Skills[33]*5
 					if rand.Intn(100)+perceptionCheck > stealthRating {
@@ -1368,7 +1368,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		player.PromptMode = false; e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"Prompt indicators off."}}
 	case "VERSION", "NEWS", "NOTES":
-		return &CommandResult{Messages: []string{"Legends of Future Past v11.5.7"}}
+		return &CommandResult{Messages: []string{"Legends of Future Past v11.5.8"}}
 	case "CREDITS":
 		return &CommandResult{Messages: []string{
 			"",
@@ -1809,8 +1809,8 @@ func (e *GameEngine) doMove(ctx context.Context, player *Player, dir string) *Co
 	if player.Immobilized {
 		return &CommandResult{Messages: []string{"You are immobilized and cannot move!"}}
 	}
-	// Normal movement always reveals (use SNEAK to stay hidden)
-	if player.Hidden {
+	// Normal movement reveals hidden players (but not Ethereal Projection — that's psi-maintained)
+	if player.Hidden && !player.EtherealActive {
 		player.Hidden = false
 	}
 	if player.Position != 0 && player.Position != 4 { // 4 = flying, can move
@@ -2250,6 +2250,15 @@ func (e *GameEngine) doLookAt(player *Player, args []string) *CommandResult {
 						if len(playersHere) > 0 {
 							msgs = append(msgs, fmt.Sprintf("You see %s.", strings.Join(playersHere, ", ")))
 						}
+					}
+					// Show room items
+					for _, ri := range dest.Items {
+						itemDef := e.items[ri.Archetype]
+						if itemDef == nil {
+							continue
+						}
+						itemName := e.formatItemName(itemDef, ri.Adj1, ri.Adj2, ri.Adj3)
+						msgs = append(msgs, fmt.Sprintf("You see %s.", itemName))
 					}
 					// Show monsters
 					monLines := e.MonsterLookLines(destNum)
