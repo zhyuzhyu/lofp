@@ -501,8 +501,8 @@ func (e *GameEngine) monsterTick(tick int) {
 			}
 		}
 
-		// Random text (TEX1-4): ~15% chance per action tick
-		if rand.Intn(100) < 15 {
+		// Random text (TEX1-4): ~8% chance per action tick
+		if rand.Intn(100) < 8 {
 			var texts []string
 			for _, key := range []string{"TEX1", "TEX2", "TEX3", "TEX4"} {
 				if t, ok := def.TextOverrides[key]; ok && t != "" {

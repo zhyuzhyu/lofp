@@ -9,6 +9,34 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.10 &mdash; April 28, 2026</h2>
+            <p className="text-gray-400 mb-3">Players no longer look dead, date/time on login, mining tools from inventory, ambient text reduced.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Critical Fix</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Players no longer appear dead when examined &mdash; fixed divide-by-zero when MaxBodyPoints was 0</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Features</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Date, time, and weather shown when entering the game world</li>
+                  <li>Mining tools work from inventory (not just wielded)</li>
+                  <li>Mining accepts &ldquo;pick-axe&rdquo; (hyphenated) in addition to &ldquo;pickaxe&rdquo;</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Balance</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Ambient NPC text frequency reduced (15% &rarr; 8%) for less screen clutter</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.9 &mdash; April 28, 2026</h2>
             <p className="text-gray-400 mb-3">Build point fix, level-up mana/psi, open-ended crits, typed mining ore, GM idle exempt.</p>
 

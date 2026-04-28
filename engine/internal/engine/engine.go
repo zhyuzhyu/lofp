@@ -1364,7 +1364,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		player.PromptMode = false; e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"Prompt indicators off."}}
 	case "VERSION", "NEWS", "NOTES":
-		return &CommandResult{Messages: []string{"Legends of Future Past v11.5.9"}}
+		return &CommandResult{Messages: []string{"Legends of Future Past v11.5.10"}}
 	case "CREDITS":
 		return &CommandResult{Messages: []string{
 			"",
@@ -1927,7 +1927,17 @@ func (e *GameEngine) doMove(ctx context.Context, player *Player, dir string) *Co
 
 // EnterRoom performs a look and runs IFENTRY scripts. Used on login/creation.
 func (e *GameEngine) EnterRoom(ctx context.Context, player *Player) *CommandResult {
+	// Show date and time on entry
+	period := "day"
+	if IsNight() {
+		period = "night"
+	}
+	weather := strings.ToLower(e.GetRoomWeather(player.RoomNumber))
+	timeMsg := fmt.Sprintf("It is %s %d, %d. It is %s and the weather is %s.",
+		GameMonthName(), GameDay()%28+1, GameYear(), period, weather)
+
 	result := e.doLook(player)
+	result.Messages = append([]string{timeMsg}, result.Messages...)
 	room := e.rooms[player.RoomNumber]
 	if room != nil {
 		e.applyEntryScripts(ctx, player, room, result)
@@ -2466,7 +2476,10 @@ func (e *GameEngine) examinePlayer(observer *Player, target *Player) *CommandRes
 	}
 
 	// Health description
-	healthPct := float64(target.BodyPoints) / float64(target.MaxBodyPoints) * 100
+	healthPct := float64(100)
+	if target.MaxBodyPoints > 0 {
+		healthPct = float64(target.BodyPoints) / float64(target.MaxBodyPoints) * 100
+	}
 	if isSelf {
 		switch {
 		case healthPct >= 100:

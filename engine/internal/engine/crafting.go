@@ -31,14 +31,23 @@ func (e *GameEngine) doMineReal(ctx context.Context, player *Player) *CommandRes
 		return &CommandResult{Messages: []string{"There is nothing to mine here."}}
 	}
 
-	// Check for mining tool
+	// Check for mining tool (wielded or in inventory)
+	isMiningTool := func(def *gameworld.ItemDef) bool {
+		if def == nil {
+			return false
+		}
+		noun := strings.ToLower(e.nouns[def.NameID])
+		return noun == "pickaxe" || noun == "pick-axe" || noun == "hammer" || noun == "shovel" || def.Type == "MINETOOL"
+	}
 	hasTool := false
-	if player.Wielded != nil {
-		wDef := e.items[player.Wielded.Archetype]
-		if wDef != nil {
-			noun := strings.ToLower(e.nouns[wDef.NameID])
-			if noun == "pickaxe" || noun == "hammer" || noun == "shovel" || wDef.Type == "MINETOOL" {
+	if player.Wielded != nil && isMiningTool(e.items[player.Wielded.Archetype]) {
+		hasTool = true
+	}
+	if !hasTool {
+		for _, ii := range player.Inventory {
+			if isMiningTool(e.items[ii.Archetype]) {
 				hasTool = true
+				break
 			}
 		}
 	}
