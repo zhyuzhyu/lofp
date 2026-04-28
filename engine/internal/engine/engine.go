@@ -1933,8 +1933,14 @@ func (e *GameEngine) EnterRoom(ctx context.Context, player *Player) *CommandResu
 		period = "night"
 	}
 	weather := strings.ToLower(e.GetRoomWeather(player.RoomNumber))
-	timeMsg := fmt.Sprintf("It is %s %d, %d. It is %s and the weather is %s.",
-		GameMonthName(), GameDay()%28+1, GameYear(), period, weather)
+	var timeMsg string
+	if weather != "" {
+		timeMsg = fmt.Sprintf("It is %s %d, %d. It is %s. %s",
+			GameMonthName(), GameDay()%28+1, GameYear(), period, weather)
+	} else {
+		timeMsg = fmt.Sprintf("It is %s %d, %d. It is %s.",
+			GameMonthName(), GameDay()%28+1, GameYear(), period)
+	}
 
 	result := e.doLook(player)
 	result.Messages = append([]string{timeMsg}, result.Messages...)
