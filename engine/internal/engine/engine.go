@@ -1364,7 +1364,7 @@ func (e *GameEngine) ProcessCommand(ctx context.Context, player *Player, input s
 		player.PromptMode = false; e.SavePlayer(ctx, player)
 		return &CommandResult{Messages: []string{"Prompt indicators off."}}
 	case "VERSION", "NEWS", "NOTES":
-		return &CommandResult{Messages: []string{"Legends of Future Past v11.5.10"}}
+		return &CommandResult{Messages: []string{"Legends of Future Past v11.5.11"}}
 	case "CREDITS":
 		return &CommandResult{Messages: []string{
 			"",
@@ -2315,6 +2315,11 @@ func (e *GameEngine) doLookAt(player *Player, args []string) *CommandResult {
 		return &CommandResult{Messages: []string{"You see nothing."}}
 	}
 
+	isContainer := func(def *gameworld.ItemDef) bool {
+		return def.Type == "CONTAINER" || containsFlag(def.Flags, "CONTAINER") ||
+			def.Container == "IN" || def.Container == "ON"
+	}
+
 	// Search room items
 	for _, ri := range room.Items {
 		itemDef := e.items[ri.Archetype]
@@ -2324,6 +2329,13 @@ func (e *GameEngine) doLookAt(player *Player, args []string) *CommandResult {
 		name := e.getItemNounName(itemDef)
 		if matchesTarget(name, remaining, e.getAdjName(ri.Adj1)) {
 			if skip > 0 { skip--; continue }
+			if prefix == "IN" && isContainer(itemDef) {
+				displayName := e.formatItemName(itemDef, ri.Adj1, ri.Adj2, ri.Adj3)
+				if ri.State == "OPEN" || ri.State == "" {
+					return &CommandResult{Messages: []string{fmt.Sprintf("You look in %s. It is empty.", displayName)}}
+				}
+				return &CommandResult{Messages: []string{fmt.Sprintf("You'll need to open %s first.", displayName)}}
+			}
 			if prefix != "" {
 				return e.lookPrefixRoomItem(room, itemDef, &ri, prefix)
 			}
@@ -2344,8 +2356,12 @@ func (e *GameEngine) doLookAt(player *Player, args []string) *CommandResult {
 		name := e.getItemNounName(itemDef)
 		if matchesTarget(name, remaining, e.getAdjName(ii.Adj1)) || matchesTarget(name, remaining, e.getAdjName(ii.Adj3)) {
 			if skip > 0 { skip--; continue }
-			if prefix == "IN" && (itemDef.Type == "CONTAINER" || containsFlag(itemDef.Flags, "CONTAINER")) {
+			if prefix == "IN" && isContainer(itemDef) {
 				return e.lookInContainer(player, itemDef, &ii)
+			}
+			if prefix != "" {
+				displayName := e.formatItemName(itemDef, ii.Adj1, ii.Adj2, ii.Adj3)
+				return &CommandResult{Messages: []string{fmt.Sprintf("You see nothing noteworthy %s %s.", strings.ToLower(prefix), displayName)}}
 			}
 			return &CommandResult{Messages: []string{fmt.Sprintf("You look at your %s.", name)}}
 		}
@@ -2992,6 +3008,9 @@ func (e *GameEngine) doGet(ctx context.Context, player *Player, args []string) *
 		}
 		if isPortal(itemDef.Type) {
 			continue
+		}
+		if containsFlag(itemDef.Flags, "FIXED") || itemDef.Type == "MANUSCRIPT" {
+			continue // can't pick up fixed items or manuscripts
 		}
 		name := e.getItemNounName(itemDef)
 		if matchesTarget(name, target, e.getAdjName(ri.Adj1)) {

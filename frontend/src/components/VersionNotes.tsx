@@ -9,6 +9,29 @@ export default function VersionNotes({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-6 text-sm">
           <section>
+            <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.11 &mdash; April 29, 2026</h2>
+            <p className="text-gray-400 mb-3">Crafting pipeline fix, LOOK IN containers, CRAFT recipe list, manuscript protection.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Crafting</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>Smelting now preserves ore type &mdash; iron ore smelts to iron metal, not generic metal</li>
+                  <li>WORK command matches instance adjectives &mdash; &ldquo;work steel&rdquo; finds steel metal in inventory</li>
+                  <li>CRAFT with no args lists all available recipes</li>
+                </ul>
+              </div>
+              <div>
+                <h3 className="text-green-400 font-bold mb-1">Fixes</h3>
+                <ul className="text-gray-300 space-y-1 ml-4 list-disc">
+                  <li>LOOK IN now works for containers in rooms and inventory (chest, sack, coffer, etc.)</li>
+                  <li>Manuscripts and FIXED items can no longer be picked up</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h2 className="text-amber-400 text-lg font-bold mb-1">v11.5.10 &mdash; April 28, 2026</h2>
             <p className="text-gray-400 mb-3">Players no longer look dead, date/time on login, mining tools from inventory, ambient text reduced.</p>
 

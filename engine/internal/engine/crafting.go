@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sort"
 	"strings"
 	"time"
 
@@ -243,6 +244,7 @@ func (e *GameEngine) doSmelt(ctx context.Context, player *Player, args []string)
 
 		material := InventoryItem{
 			Archetype: outputArch,
+			Adj1:      ii.Adj1, // preserve metal type (iron, copper, etc.)
 			Val2:      ii.Val2, // transfer material properties
 		}
 		player.Inventory = append(player.Inventory, material)
@@ -280,7 +282,26 @@ func metalDifficulty(metal string) (int, int) {
 
 func (e *GameEngine) doCraft(ctx context.Context, player *Player, args []string) *CommandResult {
 	if len(args) == 0 {
-		return &CommandResult{Messages: []string{"Craft what? Specify the item you want to make."}}
+		// List available recipes
+		var recipes []string
+		for _, def := range e.items {
+			if containsFlag(def.Flags, "CRAFTABLE") {
+				name := e.nouns[def.NameID]
+				if name != "" {
+					recipes = append(recipes, name)
+				}
+			}
+		}
+		if len(recipes) == 0 {
+			return &CommandResult{Messages: []string{"No craftable recipes are known."}}
+		}
+		sort.Strings(recipes)
+		msgs := []string{"You can craft the following items:"}
+		for _, r := range recipes {
+			msgs = append(msgs, fmt.Sprintf("  %s", r))
+		}
+		msgs = append(msgs, "Use CRAFT <item> to begin crafting.")
+		return &CommandResult{Messages: msgs}
 	}
 
 	room := e.rooms[player.RoomNumber]
@@ -465,13 +486,19 @@ func (e *GameEngine) doWork(ctx context.Context, player *Player, args []string) 
 			if mDef.Type == "MATERIAL" || mDef.Type == "MATERIAL2" {
 				if mDef.Parameter2 == 8 || mDef.Parameter2 == 0 { // weaponsmithing material
 					mName := strings.ToLower(e.getItemNounName(mDef))
-					adjName := ""
+					// Check both definition adjective and instance adjective
+					defAdj := ""
 					if mDef.Parameter1 > 0 {
-						adjName = strings.ToLower(e.getAdjName(mDef.Parameter1))
+						defAdj = strings.ToLower(e.getAdjName(mDef.Parameter1))
 					}
-					if strings.Contains(mName, metal) || strings.Contains(adjName, metal) || strings.HasPrefix(metal, adjName) {
+					instAdj := strings.ToLower(e.getAdjName(ii.Adj1))
+					if strings.Contains(mName, metal) || strings.Contains(defAdj, metal) ||
+						strings.Contains(instAdj, metal) || strings.HasPrefix(metal, defAdj) ||
+						strings.HasPrefix(metal, instAdj) {
 						materialIdx = j
-						if mDef.Parameter1 > 0 {
+						if ii.Adj1 > 0 {
+							materialAdj = ii.Adj1 // prefer instance adjective
+						} else if mDef.Parameter1 > 0 {
 							materialAdj = mDef.Parameter1
 						}
 						break
